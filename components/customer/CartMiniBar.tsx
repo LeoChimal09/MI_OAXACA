@@ -1,0 +1,68 @@
+'use client';
+
+import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Container from '@mui/material/Container';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import Link from 'next/link';
+import { useSyncExternalStore } from 'react';
+import { useCart } from '@/features/cart/CartContext';
+
+export default function CartMiniBar() {
+  const { cart } = useCart();
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+
+  const totalOrders = hydrated ? cart.totalOrders : 0;
+  const totalPrice = hydrated ? cart.totalPrice : 0;
+
+  if (totalOrders === 0) return null;
+
+  return (
+    <Box
+      sx={{
+        backgroundColor: 'var(--brand-pink)',
+        color: '#fff',
+        py: { xs: 0.85, sm: 0.95 },
+        position: 'sticky',
+        top: 64,
+        zIndex: 45,
+      }}
+    >
+      <Container maxWidth="lg">
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={{ xs: 0.75, sm: 0 }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+        >
+          <Stack direction="row" spacing={1} alignItems="center">
+            <ShoppingBagIcon fontSize="small" />
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {totalOrders} order{totalOrders > 1 ? 's' : ''} in cart · ${totalPrice.toFixed(2)}
+            </Typography>
+          </Stack>
+          <Button
+            component={Link}
+            href="/cart"
+            size="small"
+            variant="outlined"
+            sx={{
+              color: '#fff',
+              borderColor: 'rgba(255,255,255,0.6)',
+              py: 0.25,
+              alignSelf: { xs: 'stretch', sm: 'auto' },
+            }}
+          >
+            View Cart
+          </Button>
+        </Stack>
+      </Container>
+    </Box>
+  );
+}

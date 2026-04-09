@@ -1,26 +1,88 @@
 @import "tailwindcss";
 
+/* ─── Mi Oaxaca — Brand Palette ─────────────────────────────────────────────
+   Inspired by the Día de los Muertos folk-art wrap on the food truck:
+   deep dark-navy base + vivid fiesta accent colors.
+──────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Base */
+  --background:        #0c0e1a;   /* deep dark navy — truck body */
+  --surface:           #131629;   /* slightly lighter layer */
+  --surface-raised:    #1a1f38;   /* cards, panels */
+  --border:            #252a45;   /* subtle borders */
+  --foreground:        #f5f0e8;   /* warm off-white text */
+  --foreground-muted:  #9aa0bc;   /* secondary text */
+
+  /* Brand — from the "Mi Oaxaca" logo lettering */
+  --brand-pink:        #e8197d;   /* hot magenta (logo text) */
+  --brand-pink-light:  #ff4fa3;
+  --brand-pink-dark:   #b5105e;
+
+  /* Accent palette — folk art colors */
+  --accent-orange:     #f97316;   /* warm marigold orange */
+  --accent-gold:       #f5c518;   /* Día de Muertos marigold yellow */
+  --accent-teal:       #06b6d4;   /* bright cyan-teal */
+  --accent-green:      #22c55e;   /* vivid leaf green */
+  --accent-red:        #ef4444;   /* coral-red (sugar skull hearts) */
+  --accent-purple:     #a855f7;   /* flower purple */
+  --accent-sky:        #38bdf8;   /* light sky blue (birds) */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Tailwind v4 design tokens */
+  --color-background:       var(--background);
+  --color-surface:          var(--surface);
+  --color-surface-raised:   var(--surface-raised);
+  --color-border:           var(--border);
+  --color-foreground:       var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand:            var(--brand-pink);
+  --color-brand-light:      var(--brand-pink-light);
+  --color-brand-dark:       var(--brand-pink-dark);
+
+  --color-accent-orange:    var(--accent-orange);
+  --color-accent-gold:      var(--accent-gold);
+  --color-accent-teal:      var(--accent-teal);
+  --color-accent-green:     var(--accent-green);
+  --color-accent-red:       var(--accent-red);
+  --color-accent-purple:    var(--accent-purple);
+  --color-accent-sky:       var(--accent-sky);
+
+  --font-sans:  var(--font-display);
+  --font-body:  var(--font-body);
+  --font-mono:  var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body, 'Georgia', serif);
+}
+
+/* ─── Utility helpers ─────────────────────────────────────────────────────── */
+
+/* Fiesta gradient — usable as bg-fiesta-gradient */
+.bg-fiesta-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--brand-pink)   0%,
+    var(--accent-orange) 25%,
+    var(--accent-gold)  50%,
+    var(--accent-teal)  75%,
+    var(--accent-purple) 100%
+  );
+}
+
+/* Subtle decorative border inspired by the floral strip */
+.border-fiesta {
+  border-image: linear-gradient(
+    to right,
+    var(--brand-pink),
+    var(--accent-orange),
+    var(--accent-gold),
+    var(--accent-teal),
+    var(--accent-purple)
+  ) 1;
 }

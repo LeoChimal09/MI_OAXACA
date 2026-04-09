@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# local reference project (do not commit)
+/web-project-source/
+
 # production
 /build
 
@@ -32,9 +35,20 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# local editor/tooling
+.vscode/
+.idea/
+/.turbo/
+*.swp
+*.swo
+
+# drizzle
+.drizzle-studio-cache/
 
 # typescript
 *.tsbuildinfo
