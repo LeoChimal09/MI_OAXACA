@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   deleteOrder,
   dismissOrderNotification,
-  getOrder,
+  getOrderWithCustomerEmail,
   updateOrderStatus,
 } from "@/server/repositories/orders-repository";
 import type { CancellationActor, OrderEtaMinutes, OrderStatus } from "@/features/checkout/checkout.types";
@@ -12,6 +12,7 @@ import {
 } from "@/features/checkout/order-status";
 import { getAuthSession, isAdminSession } from "@/lib/auth";
 import { isRateLimited, getRemainingAttempts } from "@/lib/rate-limiter";
+import { sendCustomerOrderStatusUpdateEmail } from "@/lib/resend-mailer";
 
 const VALID_ORDER_STATUSES: OrderStatus[] = [
   "pending",
@@ -30,6 +31,10 @@ type OrderRouteContext = {
 
 function isOrderStatus(value: unknown): value is OrderStatus {
   return typeof value === "string" && VALID_ORDER_STATUSES.includes(value as OrderStatus);
+}
+
+function getSessionEmail(session: Awaited<ReturnType<typeof getAuthSession>>) {
+  return session?.user?.email?.trim().toLowerCase() ?? null;
 }
 
 export async function GET(request: NextRequest, context: OrderRouteContext) {
@@ -52,19 +57,33 @@ export async function GET(request: NextRequest, context: OrderRouteContext) {
     );
   }
 
-  const order = await getOrder(ref);
+  const session = await getAuthSession();
+  const orderResult = await getOrderWithCustomerEmail(ref);
 
-  if (!order) {
+  if (!session) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
+  if (!orderResult) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
-  return NextResponse.json(order);
+  const isAdmin = isAdminSession(session);
+  const sessionEmail = getSessionEmail(session);
+  const isOwner = Boolean(
+    sessionEmail && orderResult.customerEmail && sessionEmail === orderResult.customerEmail,
+  );
+
+  if (!isAdmin && !isOwner) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  return NextResponse.json(orderResult.order);
 }
 
 export async function PATCH(request: NextRequest, context: OrderRouteContext) {
   const { ref } = await context.params;
   const session = await getAuthSession();
-  const isAdmin = session ? isAdminSession(session) : false;
   const body = await request.json().catch(() => null);
   const status = body && typeof body === "object" ? (body as { status?: unknown }).status : undefined;
   const etaMinutes = body && typeof body === "object" ? (body as { etaMinutes?: unknown }).etaMinutes : undefined;
@@ -74,12 +93,30 @@ export async function PATCH(request: NextRequest, context: OrderRouteContext) {
   const notificationDismissed =
     body && typeof body === "object" ? (body as { notificationDismissed?: unknown }).notificationDismissed : undefined;
 
-  const existingOrder = await getOrder(ref);
-  if (!existingOrder) {
+  if (!session) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
+  const existingOrderResult = await getOrderWithCustomerEmail(ref);
+  if (!existingOrderResult) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
-  // Allow customers and admins to dismiss notifications
+  const isAdmin = isAdminSession(session);
+  const sessionEmail = getSessionEmail(session);
+  const isOwner = Boolean(
+    sessionEmail &&
+      existingOrderResult.customerEmail &&
+      sessionEmail === existingOrderResult.customerEmail,
+  );
+
+  if (!isAdmin && !isOwner) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  const existingOrder = existingOrderResult.order;
+
+  // Allow only authorized customer/admin to dismiss notifications
   if (notificationDismissed === true) {
     const dismissed = await dismissOrderNotification(ref);
     if (!dismissed) {
@@ -163,6 +200,26 @@ export async function PATCH(request: NextRequest, context: OrderRouteContext) {
 
   if (order === undefined) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
+  }
+
+  const recipientEmails = Array.from(
+    new Set(
+      [
+        order.form.email.trim().toLowerCase(),
+        existingOrderResult.customerEmail ?? "",
+      ].filter(Boolean),
+    ),
+  );
+
+  const shouldEmailCustomer =
+    recipientEmails.length > 0 &&
+    existingOrder.status !== order.status &&
+    (order.status === "in_progress" ||
+      order.status === "ready" ||
+      (order.status === "cancelled" && order.cancelledBy === "admin"));
+
+  if (shouldEmailCustomer) {
+    void sendCustomerOrderStatusUpdateEmail({ email: recipientEmails, order }).catch(() => undefined);
   }
 
   return NextResponse.json(order);

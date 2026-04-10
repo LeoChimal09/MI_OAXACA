@@ -23,11 +23,11 @@ import { useOrdersApi } from "@/hooks/useOrdersApi";
 const HIDDEN_ORDER_HISTORY_KEY = "mi_oaxaca_hidden_order_history";
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; color: "default" | "warning" | "info" | "success" | "error" }> = {
-  pending: { label: "Pending", color: "default" },
-  in_progress: { label: "In Progress", color: "warning" },
-  ready: { label: "Ready", color: "info" },
-  completed: { label: "Completed", color: "success" },
-  cancelled: { label: "Cancelled", color: "error" },
+  pending:    { label: "Pending",     color: "default"  },
+  in_progress:{ label: "In Progress", color: "warning"  },
+  ready:      { label: "Ready",       color: "info"     },
+  completed:  { label: "Completed",   color: "success"  },
+  cancelled:  { label: "Cancelled",   color: "error"    },
 };
 
 function loadHiddenOrderRefs() {
@@ -100,7 +100,7 @@ export default function OrdersPage() {
     };
   }, [showOverflowMask, visibleOrders.length]);
 
-  const handleRemakeOrder = (orderOrders: (typeof orders)[number]["orders"]) => {
+  const handleRemakeOrder = (orderOrders: typeof orders[number]["orders"]) => {
     if (cart.totalOrders > 0) {
       setConfirmState({
         open: true,
@@ -161,6 +161,7 @@ export default function OrdersPage() {
     );
   }
 
+  // Count removable orders (completed or cancelled)
   const removableOrders = visibleOrders.filter((order) => canRemoveOrderFromHistory(order.status));
   const hasRemovableOrders = removableOrders.length > 0;
 
@@ -185,33 +186,32 @@ export default function OrdersPage() {
   return (
     <Container maxWidth="md" sx={{ py: { xs: 4, md: 8 } }}>
       <Stack spacing={4}>
-        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={2}>
-          <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>My Orders</Typography>
-          {hasRemovableOrders && (
-            <Button variant="outlined" color="error" size="small" onClick={handleClearHistory}>
-              Clear History
-            </Button>
-          )}
-        </Stack>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={2}>
+            <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>My Orders</Typography>
+            {hasRemovableOrders && (
+              <Button variant="outlined" color="error" size="small" onClick={handleClearHistory}>
+                Clear History
+              </Button>
+            )}
+          </Stack>
 
-        <Box sx={{ position: "relative" }}>
-          <Box
-            ref={scrollRef}
-            sx={{
-              maxHeight: showOverflowMask ? { xs: 420, md: 452 } : "none",
-              overflowY: showOverflowMask ? "auto" : "visible",
-              pr: showOverflowMask ? 1 : 0,
-              scrollbarWidth: "thin",
-              overscrollBehavior: "contain",
-            }}
-          >
-            <Stack spacing={2}>
+          <Box sx={{ position: "relative" }}>
+            <Box
+              ref={scrollRef}
+              sx={{
+                maxHeight: showOverflowMask ? { xs: 420, md: 452 } : "none",
+                overflowY: showOverflowMask ? "auto" : "visible",
+                pr: showOverflowMask ? 1 : 0,
+                scrollbarWidth: "thin",
+                overscrollBehavior: "contain",
+              }}
+            >
+              <Stack spacing={2}>
               {visibleOrders.map((order) => {
                 const status = STATUS_CONFIG[order.status];
                 const canRemove = canRemoveOrderFromHistory(order.status);
                 const itemCount = order.orders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.cartQuantity, 0), 0);
                 const tax = order.totalPrice * 0.08;
-
                 return (
                   <Card
                     key={order.ref}
@@ -267,10 +267,16 @@ export default function OrdersPage() {
                               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                                 {order.ref}
                               </Typography>
-                              <Chip label={status.label} color={status.color} size="small" />
+                              <Chip
+                                label={status.label}
+                                color={status.color}
+                                size="small"
+                              />
                             </Stack>
                             <Typography variant="body2" color="text.secondary">
-                              {formatOrderTimestamp(order.placedAt)} &middot; {itemCount} item{itemCount !== 1 ? "s" : ""} &middot; {order.form.fulfillment === "delivery" ? "Delivery" : "Pickup"}
+                              {formatOrderTimestamp(order.placedAt)} &middot;{" "}
+                              {itemCount} item{itemCount !== 1 ? "s" : ""} &middot;{" "}
+                              {order.form.fulfillment === "delivery" ? "Delivery" : "Pickup"}
                             </Typography>
                             {order.status === "in_progress" && order.etaMinutes && (
                               <Typography variant="caption" color="warning.main" sx={{ fontWeight: 700 }}>
@@ -286,10 +292,19 @@ export default function OrdersPage() {
                         </Stack>
 
                         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                          <Button size="small" variant="outlined" LinkComponent={Link} href={`/orders/${order.ref}`}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            LinkComponent={Link}
+                            href={`/orders/${order.ref}`}
+                          >
                             View Details
                           </Button>
-                          <Button size="small" variant="contained" onClick={() => handleRemakeOrder(order.orders)}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => handleRemakeOrder(order.orders)}
+                          >
                             Remake Order
                           </Button>
                           {order.status === "pending" && (
@@ -320,30 +335,34 @@ export default function OrdersPage() {
                   </Card>
                 );
               })}
-            </Stack>
+              </Stack>
+            </Box>
+
+            {showOverflowMask && showBottomFade && (
+              <Box
+                sx={{
+                  pointerEvents: "none",
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 72,
+                  background:
+                    "linear-gradient(180deg, rgba(2,7,23,0) 0%, rgba(2,7,23,0.45) 60%, rgba(2,7,23,0.75) 100%)",
+                }}
+              />
+            )}
+
+            {showOverflowMask && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mt: 1, textAlign: "right" }}
+              >
+                Scroll to view older orders
+              </Typography>
+            )}
           </Box>
-
-          {showOverflowMask && showBottomFade && (
-            <Box
-              sx={{
-                pointerEvents: "none",
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 72,
-                background:
-                  "linear-gradient(180deg, rgba(247,241,232,0) 0%, rgba(247,241,232,0.7) 52%, rgba(247,241,232,1) 100%)",
-              }}
-            />
-          )}
-
-          {showOverflowMask && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1, textAlign: "right" }}>
-              Scroll to view older orders
-            </Typography>
-          )}
-        </Box>
 
         <ConfirmActionDialog
           open={confirmState.open}
