@@ -10,6 +10,7 @@ import { useCart } from "@/features/cart/CartContext";
 const navLinks = [
   { href: "/menu", label: "Menu" },
   { href: "/orders", label: "My Orders" },
+  { href: "/admin", label: "Admin" },
 ];
 
 export default function SiteNavbar() {

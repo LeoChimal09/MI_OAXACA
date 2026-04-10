@@ -1,4 +1,4 @@
-import { double, int, mysqlEnum, mysqlTable, text, varchar } from "drizzle-orm/mysql-core";
+import { double, int, mysqlEnum, mysqlTable, text, tinyint, varchar } from "drizzle-orm/mysql-core";
 
 export const orderStatusValues = ["pending", "in_progress", "ready", "completed", "cancelled"] as const;
 
@@ -18,7 +18,7 @@ export const ordersTable = mysqlTable("orders", {
   paymentCurrency: varchar("payment_currency", { length: 8 }),
   paymentAmountCents: int("payment_amount_cents", { unsigned: true }),
   paidAt: varchar("paid_at", { length: 40 }),
-  etaMinutes: int("eta_minutes", { unsigned: true }),
+  etaMinutes: tinyint("eta_minutes", { unsigned: true }),
   cancellationNote: text("cancellation_note"),
   cancelledBy: mysqlEnum("cancelled_by", cancellationActorValues),
   notificationDismissedAt: varchar("notification_dismissed_at", { length: 40 }),
