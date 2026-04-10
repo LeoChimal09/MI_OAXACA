@@ -3,6 +3,7 @@
 import { useCart } from '@/features/cart/CartContext';
 import { useOrderHistory } from '@/features/checkout/OrderHistoryContext';
 import type { PlacedOrder } from '@/features/checkout/checkout.types';
+import { useOrdersApi } from '@/hooks/useOrdersApi';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
@@ -29,6 +30,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { cart, clearCart } = useCart();
   const { addOrder } = useOrderHistory();
+  const { createOrder } = useOrdersApi({ enabled: false, pollIntervalMs: 0 });
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -80,10 +82,7 @@ export default function CheckoutPage() {
       const [firstName, ...rest] = formData.customerName.trim().split(' ');
       const lastName = rest.join(' ').trim();
 
-      const order: PlacedOrder = {
-        ref: `MIO-${Date.now().toString(16).toUpperCase()}`,
-        placedAt: new Date().toISOString(),
-        status: 'pending',
+      const input = {
         form: {
           firstName: firstName || 'Guest',
           lastName,
@@ -103,6 +102,8 @@ export default function CheckoutPage() {
         orders: cart.orders,
         totalPrice: cart.totalPrice,
       };
+
+      const order = (await createOrder(input)) as PlacedOrder;
 
       addOrder(order);
       clearCart();

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, Lato, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import MuiThemeProvider from "@/components/shared/MuiThemeProvider";
+import SessionWrapper from "@/components/shared/SessionWrapper";
 import { CartProvider } from "@/features/cart/CartContext";
 import { OrderHistoryProvider } from "@/features/checkout/OrderHistoryContext";
 
@@ -42,11 +43,13 @@ export default function RootLayout({
       className={`${playfair.variable} ${lato.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <MuiThemeProvider>
-          <CartProvider>
-            <OrderHistoryProvider>{children}</OrderHistoryProvider>
-          </CartProvider>
-        </MuiThemeProvider>
+        <SessionWrapper>
+          <MuiThemeProvider>
+            <CartProvider>
+              <OrderHistoryProvider>{children}</OrderHistoryProvider>
+            </CartProvider>
+          </MuiThemeProvider>
+        </SessionWrapper>
       </body>
     </html>
   );

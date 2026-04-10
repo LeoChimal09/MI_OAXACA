@@ -1,277 +1,379 @@
-'use client';
+"use client";
 
-import { useOrderHistory } from '@/features/checkout/OrderHistoryContext';
-import { useCart } from '@/features/cart/CartContext';
-import type { OrderStatus, PlacedOrder } from '@/features/checkout/checkout.types';
-import { useState } from 'react';
-import {
-  Container,
-  Card,
-  CardContent,
-  Button,
-  IconButton,
-  Typography,
-  Box,
-  Stack,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import Container from "@mui/material/Container";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import CloseIcon from "@mui/icons-material/Close";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import ConfirmActionDialog from "@/components/shared/ConfirmActionDialog";
+import { useCart } from "@/features/cart/CartContext";
+import { formatOrderTimestamp } from "@/features/checkout/order-format";
+import type { OrderStatus } from "@/features/checkout/checkout.types";
+import { canRemoveOrderFromHistory, formatOrderEtaMinutes } from "@/features/checkout/order-status";
+import { useOrdersApi } from "@/hooks/useOrdersApi";
 
-interface OrderSummary {
-  ref: string;
-  customerName: string;
-  total: number;
-  placedAt: string;
-  status: OrderStatus;
-  fulfillment: 'pickup' | 'delivery';
-  itemCount: number;
-  source: PlacedOrder;
-}
+const HIDDEN_ORDER_HISTORY_KEY = "mi_oaxaca_hidden_order_history";
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; color: 'default' | 'warning' | 'info' | 'success' | 'error' }> = {
-  pending: { label: 'Pending', color: 'default' },
-  in_progress: { label: 'In Progress', color: 'warning' },
-  ready: { label: 'Ready', color: 'info' },
-  completed: { label: 'Completed', color: 'success' },
-  cancelled: { label: 'Cancelled', color: 'error' },
+const STATUS_CONFIG: Record<OrderStatus, { label: string; color: "default" | "warning" | "info" | "success" | "error" }> = {
+  pending:    { label: "Pending",     color: "default"  },
+  in_progress:{ label: "In Progress", color: "warning"  },
+  ready:      { label: "Ready",       color: "info"     },
+  completed:  { label: "Completed",   color: "success"  },
+  cancelled:  { label: "Cancelled",   color: "error"    },
 };
 
+function loadHiddenOrderRefs() {
+  if (typeof window === "undefined") {
+    return [] as string[];
+  }
+
+  try {
+    const raw = localStorage.getItem(HIDDEN_ORDER_HISTORY_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter((value): value is string => typeof value === "string");
+  } catch {
+    localStorage.removeItem(HIDDEN_ORDER_HISTORY_KEY);
+    return [];
+  }
+}
+
 export default function OrdersPage() {
-  const router = useRouter();
-  const { orders: historyOrders, cancelOrder, removeFromHistory } = useOrderHistory();
   const { cart, remakeOrder } = useCart();
+  const { orders, loading, error, updateOrderStatus } = useOrdersApi();
+  const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [showBottomFade, setShowBottomFade] = useState(false);
+  const [hiddenOrderRefs, setHiddenOrderRefs] = useState<string[]>(loadHiddenOrderRefs);
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     title: string;
     description: string;
     confirmLabel: string;
+    confirmColor: "primary" | "error" | "warning";
     onConfirm: () => void;
   }>({
     open: false,
-    title: '',
-    description: '',
-    confirmLabel: 'Confirm',
+    title: "",
+    description: "",
+    confirmLabel: "Confirm",
+    confirmColor: "primary",
     onConfirm: () => {},
   });
 
-  const orders: OrderSummary[] = historyOrders.map((order: PlacedOrder) => ({
-    ref: order.ref,
-    customerName: `${order.form.firstName} ${order.form.lastName}`.trim() || 'Guest',
-    total: order.totalPrice * 1.08,
-    placedAt: order.placedAt,
-    status: order.status,
-    fulfillment: order.form.fulfillment,
-    itemCount: order.orders.reduce((acc, entry) => acc + entry.lines.reduce((lineAcc, line) => lineAcc + line.cartQuantity, 0), 0),
-    source: order,
-  }));
+  const visibleOrders = orders.filter((order) => !hiddenOrderRefs.includes(order.ref));
+  const showOverflowMask = visibleOrders.length > 3;
 
-  const handleRemake = (source: PlacedOrder) => {
-    remakeOrder(source.orders);
-    router.push(cart.totalOrders > 0 ? '/cart' : '/checkout');
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !showOverflowMask) {
+      return;
+    }
+
+    const updateFade = () => {
+      const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowBottomFade(remaining > 8);
+    };
+
+    updateFade();
+    el.addEventListener("scroll", updateFade);
+    window.addEventListener("resize", updateFade);
+
+    return () => {
+      el.removeEventListener("scroll", updateFade);
+      window.removeEventListener("resize", updateFade);
+    };
+  }, [showOverflowMask, visibleOrders.length]);
+
+  const handleRemakeOrder = (orderOrders: typeof orders[number]["orders"]) => {
+    if (cart.totalOrders > 0) {
+      setConfirmState({
+        open: true,
+        title: "Replace current cart?",
+        description: "Your current cart will be replaced with this previous order. You can still review and edit it at checkout.",
+        confirmLabel: "Replace Cart",
+        confirmColor: "warning",
+        onConfirm: () => {
+          remakeOrder(orderOrders);
+          router.push("/checkout");
+          setConfirmState((prev) => ({ ...prev, open: false }));
+        },
+      });
+      return;
+    }
+
+    remakeOrder(orderOrders);
+    router.push("/checkout");
   };
 
-  const canRemoveFromHistory = (status: OrderStatus) =>
-    status === 'completed' || status === 'cancelled';
-
-  const removableOrders = orders.filter((order) => canRemoveFromHistory(order.status));
-
-  const handleClearHistory = () => {
-    if (removableOrders.length === 0) return;
-    setConfirmState({
-      open: true,
-      title: 'Clear order history?',
-      description: `This will remove ${removableOrders.length} completed/cancelled order${removableOrders.length === 1 ? '' : 's'} from your local history.`,
-      confirmLabel: 'Clear History',
-      onConfirm: () => {
-        removableOrders.forEach((order) => removeFromHistory(order.ref));
-        setConfirmState((prev) => ({ ...prev, open: false }));
-      },
-    });
-  };
-
-  if (orders.length === 0) {
+  if (loading) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Stack spacing={3} alignItems="center" textAlign="center">
-          <Typography variant="h4" sx={{ color: 'var(--foreground)' }}>
-            No orders yet
-          </Typography>
-          <Typography variant="body1" sx={{ color: 'var(--foreground-secondary)' }}>
-            Start ordering from our menu now
-          </Typography>
-          <Button
-            component={Link}
-            href="/menu"
-            variant="contained"
-            sx={{
-              background: 'linear-gradient(135deg, var(--brand-pink), #f5316d)',
-              color: '#fff',
-              textTransform: 'capitalize',
-              fontSize: '1rem',
-              py: 1.5,
-              px: 4,
-              mt: 2,
-            }}
-          >
-            Browse Menu
+      <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 }, textAlign: "center" }}>
+        <Typography color="text.secondary">Loading orders...</Typography>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 }, textAlign: "center" }}>
+        <Stack spacing={3}>
+          <Typography variant="h4">Unable to load orders</Typography>
+          <Typography color="text.secondary">{error}</Typography>
+          <Button variant="contained" LinkComponent={Link} href="/menu" sx={{ mx: "auto" }}>
+            Back to Menu
           </Button>
         </Stack>
       </Container>
     );
   }
 
-  return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
-        spacing={1.5}
-        sx={{ mb: 3 }}
-      >
-        <Typography variant="h3" sx={{ color: 'var(--foreground)', fontFamily: 'Playfair Display' }}>
-          My Orders
-        </Typography>
-        {removableOrders.length > 0 && (
-          <Button size="small" variant="outlined" color="error" onClick={handleClearHistory}>
-            Clear History
+  if (visibleOrders.length === 0) {
+    return (
+      <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 }, textAlign: "center" }}>
+        <Stack spacing={3}>
+          <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>My Orders</Typography>
+          <Typography color="text.secondary">
+            {orders.length === 0
+              ? "You haven't placed any orders yet."
+              : "No orders are currently visible in your browser history."}
+          </Typography>
+          <Button variant="contained" LinkComponent={Link} href="/menu" sx={{ mx: "auto" }}>
+            Start an Order
           </Button>
-        )}
-      </Stack>
+        </Stack>
+      </Container>
+    );
+  }
 
-      <Stack spacing={2}>
-        {orders.map((order) => {
-          const status = STATUS_CONFIG[order.status];
-          const canRemove = canRemoveFromHistory(order.status);
-          return (
-            <Card
-              key={order.ref}
-              variant="outlined"
+  // Count removable orders (completed or cancelled)
+  const removableOrders = visibleOrders.filter((order) => canRemoveOrderFromHistory(order.status));
+  const hasRemovableOrders = removableOrders.length > 0;
+
+  const handleClearHistory = () => {
+    setConfirmState({
+      open: true,
+      title: "Clear order history?",
+      description: `This will remove ${removableOrders.length} completed or cancelled order${removableOrders.length !== 1 ? "s" : ""} from your browser history. This action only affects your local history view and does not delete actual orders.`,
+      confirmLabel: "Clear History",
+      confirmColor: "error",
+      onConfirm: () => {
+        setHiddenOrderRefs((prev) => {
+          const next = [...new Set([...prev, ...removableOrders.map((o) => o.ref)])];
+          localStorage.setItem(HIDDEN_ORDER_HISTORY_KEY, JSON.stringify(next));
+          return next;
+        });
+        setConfirmState((prev) => ({ ...prev, open: false }));
+      },
+    });
+  };
+
+  return (
+    <Container maxWidth="md" sx={{ py: { xs: 4, md: 8 } }}>
+      <Stack spacing={4}>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={2}>
+            <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>My Orders</Typography>
+            {hasRemovableOrders && (
+              <Button variant="outlined" color="error" size="small" onClick={handleClearHistory}>
+                Clear History
+              </Button>
+            )}
+          </Stack>
+
+          <Box sx={{ position: "relative" }}>
+            <Box
+              ref={scrollRef}
               sx={{
-                position: 'relative',
-                backgroundColor: 'var(--card-background)',
-                borderColor: 'rgba(232, 25, 125, 0.18)',
-                '&:hover': {
-                  borderColor: 'var(--brand-pink)',
-                  backgroundColor: 'rgba(232, 25, 125, 0.03)',
-                },
+                maxHeight: showOverflowMask ? { xs: 420, md: 452 } : "none",
+                overflowY: showOverflowMask ? "auto" : "visible",
+                pr: showOverflowMask ? 1 : 0,
+                scrollbarWidth: "thin",
+                overscrollBehavior: "contain",
               }}
             >
-              {canRemove && (
-                <IconButton
-                  size="small"
-                  aria-label={`Remove ${order.ref} from history`}
-                  onClick={() =>
-                    setConfirmState({
-                      open: true,
-                      title: 'Remove order from history?',
-                      description: 'This removes the order from this browser history list only.',
-                      confirmLabel: 'Remove',
-                      onConfirm: () => {
-                        removeFromHistory(order.ref);
-                        setConfirmState((prev) => ({ ...prev, open: false }));
-                      },
-                    })
-                  }
-                  sx={{ position: 'absolute', top: 8, right: 8, color: 'var(--foreground-secondary)' }}
-                >
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              )}
-
-              <CardContent sx={{ pr: canRemove ? 5 : 2 }}>
-                <Stack spacing={1.5}>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: 'flex-start', sm: 'center' }}
-                    spacing={1}
+              <Stack spacing={2}>
+              {visibleOrders.map((order) => {
+                const status = STATUS_CONFIG[order.status];
+                const canRemove = canRemoveOrderFromHistory(order.status);
+                const itemCount = order.orders.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + l.cartQuantity, 0), 0);
+                const tax = order.totalPrice * 0.08;
+                return (
+                  <Card
+                    key={order.ref}
+                    variant="outlined"
+                    sx={{
+                      position: "relative",
+                      display: "block",
+                      "&:hover": { borderColor: "primary.main", backgroundColor: "rgba(143,45,31,0.02)" },
+                      transition: "border-color 0.15s, background-color 0.15s",
+                    }}
                   >
-                    <Stack spacing={0.4}>
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                        <Typography variant="subtitle1" sx={{ color: 'var(--foreground)', fontWeight: 700, fontFamily: 'monospace' }}>
-                          {order.ref}
-                        </Typography>
-                        <Chip label={status.label} color={status.color} size="small" />
-                      </Stack>
-                      <Typography variant="body2" sx={{ color: 'var(--foreground-secondary)' }}>
-                        {new Date(order.placedAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}{' '}
-                        {new Date(order.placedAt).toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          hour12: true,
-                        })}{' '}
-                        · {order.itemCount} item{order.itemCount === 1 ? '' : 's'} · {order.fulfillment === 'delivery' ? 'Delivery' : 'Pickup'}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'var(--foreground-secondary)' }}>
-                        {order.customerName}
-                      </Typography>
-                    </Stack>
-
-                    <Typography variant="h6" sx={{ color: 'var(--brand-pink)', fontWeight: 700 }}>
-                      ${order.total.toFixed(2)}
-                    </Typography>
-                  </Stack>
-
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    <Button component={Link} href={`/orders/${order.ref}`} size="small" variant="outlined" sx={{ borderColor: 'var(--brand-pink)', color: 'var(--brand-pink)' }}>
-                      View Details
-                    </Button>
-                    <Button size="small" variant="contained" onClick={() => handleRemake(order.source)} sx={{ background: 'linear-gradient(135deg, var(--brand-pink), #f5316d)', color: '#fff' }}>
-                      Remake Order
-                    </Button>
-                    {order.status === 'pending' && (
-                      <Button
+                    {canRemove && (
+                      <IconButton
+                        aria-label={`Remove ${order.ref} from history`}
                         size="small"
-                        variant="outlined"
-                        color="error"
-                        onClick={() => cancelOrder(order.ref)}
+                        sx={{ position: "absolute", top: 10, right: 10, zIndex: 1 }}
+                        onClick={() =>
+                          setConfirmState({
+                            open: true,
+                            title: "Remove order from history?",
+                            description: "This only removes the order from your browser history list. It will not affect any submitted order.",
+                            confirmLabel: "Remove",
+                            confirmColor: "error",
+                            onConfirm: () => {
+                              setHiddenOrderRefs((prev) => {
+                                if (prev.includes(order.ref)) {
+                                  return prev;
+                                }
+
+                                const next = [...prev, order.ref];
+                                localStorage.setItem(HIDDEN_ORDER_HISTORY_KEY, JSON.stringify(next));
+                                return next;
+                              });
+                              setConfirmState((prev) => ({ ...prev, open: false }));
+                            },
+                          })
+                        }
                       >
-                        Cancel Order
-                      </Button>
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
                     )}
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          );
-        })}
+
+                    <CardContent sx={{ pr: canRemove ? 6 : 2 }}>
+                      <Stack spacing={1.5}>
+                        <Stack
+                          direction={{ xs: "column", sm: "row" }}
+                          justifyContent="space-between"
+                          alignItems={{ xs: "flex-start", sm: "center" }}
+                          spacing={1}
+                        >
+                          <Stack spacing={0.5}>
+                            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                                {order.ref}
+                              </Typography>
+                              <Chip
+                                label={status.label}
+                                color={status.color}
+                                size="small"
+                              />
+                            </Stack>
+                            <Typography variant="body2" color="text.secondary">
+                              {formatOrderTimestamp(order.placedAt)} &middot;{" "}
+                              {itemCount} item{itemCount !== 1 ? "s" : ""} &middot;{" "}
+                              {order.form.fulfillment === "delivery" ? "Delivery" : "Pickup"}
+                            </Typography>
+                            {order.status === "in_progress" && order.etaMinutes && (
+                              <Typography variant="caption" color="warning.main" sx={{ fontWeight: 700 }}>
+                                Estimated time: {formatOrderEtaMinutes(order.etaMinutes)}
+                              </Typography>
+                            )}
+                          </Stack>
+                          <Stack alignItems={{ xs: "flex-start", sm: "flex-end" }} spacing={0.25}>
+                            <Typography variant="body1" sx={{ fontWeight: 700, color: "primary.main" }}>
+                              ${(order.totalPrice + tax).toFixed(2)}
+                            </Typography>
+                          </Stack>
+                        </Stack>
+
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            LinkComponent={Link}
+                            href={`/orders/${order.ref}`}
+                          >
+                            View Details
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => handleRemakeOrder(order.orders)}
+                          >
+                            Remake Order
+                          </Button>
+                          {order.status === "pending" && (
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              onClick={() =>
+                                setConfirmState({
+                                  open: true,
+                                  title: "Cancel this order?",
+                                  description: "This order is still pending, so it can be cancelled now. You will still keep it in your order history.",
+                                  confirmLabel: "Cancel Order",
+                                  confirmColor: "error",
+                                  onConfirm: async () => {
+                                    await updateOrderStatus(order.ref, "cancelled");
+                                    setConfirmState((prev) => ({ ...prev, open: false }));
+                                  },
+                                })
+                              }
+                            >
+                              Cancel Order
+                            </Button>
+                          )}
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              </Stack>
+            </Box>
+
+            {showOverflowMask && showBottomFade && (
+              <Box
+                sx={{
+                  pointerEvents: "none",
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 72,
+                  background:
+                    "linear-gradient(180deg, rgba(2,7,23,0) 0%, rgba(2,7,23,0.45) 60%, rgba(2,7,23,0.75) 100%)",
+                }}
+              />
+            )}
+
+            {showOverflowMask && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mt: 1, textAlign: "right" }}
+              >
+                Scroll to view older orders
+              </Typography>
+            )}
+          </Box>
+
+        <ConfirmActionDialog
+          open={confirmState.open}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          confirmColor={confirmState.confirmColor}
+          onClose={() => setConfirmState((prev) => ({ ...prev, open: false }))}
+          onConfirm={confirmState.onConfirm}
+        />
       </Stack>
-
-      <Box sx={{ mt: 4 }}>
-        <Button component={Link} href="/menu" variant="outlined" sx={{ color: 'var(--brand-pink)', borderColor: 'var(--brand-pink)' }}>
-          Place Another Order
-        </Button>
-      </Box>
-
-      <Dialog
-        open={confirmState.open}
-        onClose={() => setConfirmState((prev) => ({ ...prev, open: false }))}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>{confirmState.title}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>{confirmState.description}</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmState((prev) => ({ ...prev, open: false }))}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={confirmState.onConfirm}>
-            {confirmState.confirmLabel}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 }

@@ -1,0 +1,268 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import type {
+  CancellationActor,
+  CreateOrderInput,
+  OrderEtaMinutes,
+  OrderStatus,
+  PlacedOrder,
+} from "@/features/checkout/checkout.types";
+
+type UseOrdersApiOptions = {
+  ref?: string | null;
+  enabled?: boolean;
+  pollIntervalMs?: number;
+  mode?: "guest" | "admin";
+};
+
+type ApiError = {
+  error?: string;
+};
+
+const OWNED_ORDER_REFS_KEY = "mi_oaxaca_owned_order_refs";
+const LEGACY_ORDER_HISTORY_KEY = "mi_oaxaca_order_history";
+
+function getOwnedOrderRefs(): string[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = localStorage.getItem(OWNED_ORDER_REFS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((value): value is string => typeof value === "string");
+      }
+    }
+
+    const legacyRaw = localStorage.getItem(LEGACY_ORDER_HISTORY_KEY);
+    if (!legacyRaw) return [];
+    const legacyParsed = JSON.parse(legacyRaw) as unknown;
+    if (!Array.isArray(legacyParsed)) return [];
+
+    const refs = legacyParsed
+      .map((order) => (typeof order === "object" && order !== null ? (order as { ref?: unknown }).ref : undefined))
+      .filter((ref): ref is string => typeof ref === "string");
+
+    if (refs.length > 0) {
+      localStorage.setItem(OWNED_ORDER_REFS_KEY, JSON.stringify(refs));
+    }
+
+    return refs;
+  } catch {
+    return [];
+  }
+}
+
+function addOwnedOrderRef(ref: string) {
+  if (typeof window === "undefined") return;
+
+  const refs = getOwnedOrderRefs();
+  if (refs.includes(ref)) return;
+  localStorage.setItem(OWNED_ORDER_REFS_KEY, JSON.stringify([ref, ...refs]));
+}
+
+function getOrdersListUrl(mode: "guest" | "admin") {
+  if (mode === "admin") {
+    // Admin scope; session-based auth handled by server
+    return "/api/orders?scope=admin";
+  }
+
+  const refs = getOwnedOrderRefs();
+  if (refs.length === 0) {
+    return "/api/orders";
+  }
+
+  const params = new URLSearchParams();
+  params.set("refs", refs.join(","));
+  return `/api/orders?${params.toString()}`;
+}
+
+async function parseApiResponse<T>(response: Response): Promise<T> {
+  if (response.ok) {
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return response.json() as Promise<T>;
+  }
+
+  const payload = (await response.json().catch(() => null)) as ApiError | null;
+  if (payload?.error) {
+    throw new Error(payload.error);
+  }
+
+  const text = await response.text().catch(() => "");
+  const fallback = text.trim() ? `${response.status} ${response.statusText}: ${text.trim()}` : `${response.status} ${response.statusText}`;
+  throw new Error(fallback || "Request failed.");
+}
+
+export function useOrdersApi(options: UseOrdersApiOptions = {}) {
+  const { ref, enabled = true, pollIntervalMs = 3000, mode = "guest" } = options;
+  const [orders, setOrders] = useState<PlacedOrder[]>([]);
+  const [order, setOrder] = useState<PlacedOrder | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
+    setError(null);
+
+    try {
+      if (ref) {
+        let nextOrder: PlacedOrder;
+
+        const ownedRefs = getOwnedOrderRefs();
+        if (ownedRefs.includes(ref)) {
+          const params = new URLSearchParams();
+          params.set("refs", ref);
+          const matchingOrders = await fetch(`/api/orders?${params.toString()}`, {
+            cache: "no-store",
+          }).then(parseApiResponse<PlacedOrder[]>);
+
+          const fromOwned = matchingOrders.find((entry) => entry.ref === ref);
+          if (!fromOwned) {
+            throw new Error("Order not found.");
+          }
+          nextOrder = fromOwned;
+        } else {
+          nextOrder = await fetch(`/api/orders/${ref}`, { cache: "no-store" }).then(
+            parseApiResponse<PlacedOrder>,
+          );
+        }
+
+        setOrder(nextOrder);
+        setOrders([]);
+      } else {
+        const url = getOrdersListUrl(mode);
+        const nextOrders = await fetch(url, {
+          cache: "no-store",
+        }).then(parseApiResponse<PlacedOrder[]>);
+        setOrders(nextOrders);
+        setOrder(null);
+      }
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to load orders.");
+      setOrder(null);
+      if (!ref) {
+        setOrders([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled, mode, ref]);
+
+  useEffect(() => {
+    setLoading(true);
+    void refetch();
+
+    if (pollIntervalMs <= 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      void refetch();
+    }, pollIntervalMs);
+
+    return () => clearInterval(interval);
+  }, [refetch, pollIntervalMs]);
+
+  const createOrder = useCallback(async (input: CreateOrderInput) => {
+    const createdOrder = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }).then(parseApiResponse<PlacedOrder>);
+
+    addOwnedOrderRef(createdOrder.ref);
+    setOrders((prev) => [createdOrder, ...prev]);
+    setOrder((prev) => (prev?.ref === createdOrder.ref ? createdOrder : prev));
+    return createdOrder;
+  }, []);
+
+  const updateOrder = useCallback((nextOrder: PlacedOrder) => {
+    setOrder((prev) => (prev?.ref === nextOrder.ref ? nextOrder : prev));
+    setOrders((prev) => prev.map((entry) => (entry.ref === nextOrder.ref ? nextOrder : entry)));
+    return nextOrder;
+  }, []);
+
+  const updateOrderStatus = useCallback(
+    async (
+      orderRef: string,
+      status: OrderStatus,
+      options?: {
+        etaMinutes?: OrderEtaMinutes;
+        cancellationNote?: string;
+        cancelledBy?: CancellationActor;
+      },
+    ) => {
+      const payload: {
+        status: OrderStatus;
+        etaMinutes?: OrderEtaMinutes;
+        cancellationNote?: string;
+        cancelledBy?: CancellationActor;
+      } = { status };
+
+      if (options?.etaMinutes) {
+        payload.etaMinutes = options.etaMinutes;
+      }
+
+      if (options?.cancellationNote !== undefined) {
+        payload.cancellationNote = options.cancellationNote;
+      }
+
+      if (options?.cancelledBy !== undefined) {
+        payload.cancelledBy = options.cancelledBy;
+      }
+
+      const headers = { "Content-Type": "application/json" };
+      const updatedOrder = await fetch(`/api/orders/${orderRef}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(payload),
+      }).then(parseApiResponse<PlacedOrder>);
+
+      return updateOrder(updatedOrder);
+    },
+    [updateOrder],
+  );
+
+  const deleteOrder = useCallback(async (orderRef: string) => {
+    await fetch(`/api/orders/${orderRef}`, {
+      method: "DELETE",
+    }).then(parseApiResponse<void>);
+
+    setOrder((prev) => (prev?.ref === orderRef ? null : prev));
+    setOrders((prev) => prev.filter((entry) => entry.ref !== orderRef));
+  }, []);
+
+  const dismissNotification = useCallback(
+    async (orderRef: string) => {
+      const headers = { "Content-Type": "application/json" };
+      const updated = await fetch(`/api/orders/${orderRef}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ notificationDismissed: true }),
+      }).then(parseApiResponse<PlacedOrder>);
+
+      return updateOrder(updated);
+    },
+    [updateOrder],
+  );
+
+  return {
+    orders,
+    order,
+    loading,
+    error,
+    refetch,
+    createOrder,
+    updateOrderStatus,
+    deleteOrder,
+    dismissNotification,
+  };
+}
