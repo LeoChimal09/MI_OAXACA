@@ -4,17 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import MenuIcon from "@mui/icons-material/Menu";
 import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
+import Drawer from "@mui/material/Drawer";
+import Divider from "@mui/material/Divider";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemText from "@mui/material/ListItemText";
 import Paper from "@mui/material/Paper";
 import Popper from "@mui/material/Popper";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
-import { useEffect, useRef, useSyncExternalStore, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore, useState, type CSSProperties } from "react";
 import { signOut } from "next-auth/react";
 import { useCart } from "@/features/cart/CartContext";
 
@@ -35,6 +41,7 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
   const { cart } = useCart();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountAnchor, setAccountAnchor] = useState<HTMLElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerHoveredRef = useRef(false);
@@ -56,6 +63,7 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
       }
     };
   }, []);
+
 
   const cancelAccountClose = () => {
     if (!closeTimerRef.current) {
@@ -139,9 +147,10 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
       <header
         className="sticky top-0 z-50 flex items-center justify-between px-4 py-2.5 sm:px-6 lg:px-8"
         style={{
+          "--site-nav-height": isDesktop ? "64px" : "60px",
           background: "var(--surface)",
           borderBottom: "1px solid var(--border)",
-        }}
+        } as CSSProperties}
       >
         {/* Logo */}
         <Link href="/" className="flex items-baseline gap-2" style={{ textDecoration: "none" }}>
@@ -162,7 +171,7 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
         {/* Nav links */}
         <nav
           className="flex items-center gap-1 text-sm font-medium sm:gap-2"
-          style={{ color: "var(--foreground-muted)" }}
+          style={{ color: "var(--foreground-muted)", display: isDesktop ? "flex" : "none" }}
         >
           {navigationLinks.map(({ href, label }) => (
             <Link
@@ -279,8 +288,77 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
               Sign in
             </Button>
           )}
+
+          {!isDesktop && (
+            <Button
+              variant="text"
+              size="small"
+              sx={{ minWidth: 0, px: 1, color: "var(--foreground-muted)" }}
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+            >
+              <MenuIcon fontSize="small" />
+            </Button>
+          )}
         </div>
       </header>
+
+      <Drawer anchor="right" open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)}>
+        <Box sx={{ width: 280, pt: 1.5 }} role="presentation">
+          <Box sx={{ px: 2, pb: 1.5 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Mi Oaxaca
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Quick navigation
+            </Typography>
+          </Box>
+          <Divider />
+          <List>
+            {navigationLinks.map(({ href, label }) => (
+              <ListItemButton
+                key={href}
+                component={Link}
+                href={href}
+                selected={pathname === href}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <ListItemText primary={label} />
+              </ListItemButton>
+            ))}
+            <ListItemButton component={Link} href="/cart" onClick={() => setMobileMenuOpen(false)}>
+              <ListItemText primary={`Cart (${cartCount})`} />
+            </ListItemButton>
+          </List>
+          <Divider />
+          <Box sx={{ p: 2 }}>
+            {user ? (
+              <Button
+                fullWidth
+                color="inherit"
+                variant="outlined"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  void signOut({ callbackUrl: "/" });
+                }}
+              >
+                Sign out
+              </Button>
+            ) : (
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  window.dispatchEvent(new CustomEvent("open-welcome-modal"));
+                }}
+              >
+                Sign in
+              </Button>
+            )}
+          </Box>
+        </Box>
+      </Drawer>
     </>
   );
 }

@@ -4,8 +4,8 @@ import { useCart } from '@/features/cart/CartContext';
 import { useOrderHistory } from '@/features/checkout/OrderHistoryContext';
 import type { PlacedOrder } from '@/features/checkout/checkout.types';
 import { useOrdersApi } from '@/hooks/useOrdersApi';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
   Container,
   Paper,
@@ -21,16 +21,44 @@ import {
   Radio,
   RadioGroup,
   Chip,
+  Alert,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import Link from 'next/link';
 
+const STRIPE_SESSION_STORAGE_KEY = 'mi_oaxaca_checkout_stripe_session';
+const OWNED_ORDER_REFS_KEY = 'mi_oaxaca_owned_order_refs';
+
+function saveOwnedOrderRef(ref: string) {
+  try {
+    const raw = localStorage.getItem(OWNED_ORDER_REFS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    const refs = Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === 'string')
+      : [];
+
+    if (!refs.includes(ref)) {
+      localStorage.setItem(OWNED_ORDER_REFS_KEY, JSON.stringify([ref, ...refs]));
+    }
+  } catch {
+    // ignore localStorage issues in non-browser/private mode
+  }
+}
+
 export default function CheckoutPage() {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { cart, clearCart } = useCart();
   const { addOrder } = useOrderHistory();
   const { createOrder } = useOrdersApi({ enabled: false, pollIntervalMs: 0 });
+  const paymentParam = searchParams.get('payment');
+  const cancelledRef = searchParams.get('ref');
+  const wasCancelled = paymentParam === 'cancelled';
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -44,6 +72,30 @@ export default function CheckoutPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!wasCancelled || !cancelledRef) {
+      return;
+    }
+
+    let stripeSessionId: string | null = null;
+    try {
+      stripeSessionId = sessionStorage.getItem(STRIPE_SESSION_STORAGE_KEY);
+      sessionStorage.removeItem(STRIPE_SESSION_STORAGE_KEY);
+    } catch {
+      // ignore sessionStorage access issues
+    }
+
+    if (!stripeSessionId) {
+      return;
+    }
+
+    void fetch('/api/payments/abandon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: cancelledRef, sessionId: stripeSessionId }),
+    }).catch(() => null);
+  }, [wasCancelled, cancelledRef]);
 
   if (cart.orders.length === 0) {
     return (
@@ -103,6 +155,34 @@ export default function CheckoutPage() {
         totalPrice: cart.totalPrice,
       };
 
+      if (formData.paymentMethod === 'card') {
+        const response = await fetch('/api/payments/checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        });
+
+        const payload = (await response.json().catch(() => null)) as
+          | { checkoutUrl?: string; stripeSessionId?: string; orderRef?: string; error?: string }
+          | null;
+
+        if (!response.ok || !payload?.checkoutUrl || !payload?.orderRef) {
+          throw new Error(payload?.error ?? 'Unable to initialize secure payment.');
+        }
+
+        saveOwnedOrderRef(payload.orderRef);
+        try {
+          if (payload.stripeSessionId) {
+            sessionStorage.setItem(STRIPE_SESSION_STORAGE_KEY, payload.stripeSessionId);
+          }
+        } catch {
+          // ignore sessionStorage access issues
+        }
+
+        window.location.href = payload.checkoutUrl;
+        return;
+      }
+
       const order = (await createOrder(input)) as PlacedOrder;
 
       addOrder(order);
@@ -129,6 +209,12 @@ export default function CheckoutPage() {
       <Typography variant="h3" sx={{ mb: 4, color: 'var(--foreground)', fontFamily: 'Playfair Display' }}>
         Checkout
       </Typography>
+
+      {wasCancelled && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Your payment was cancelled. Your order details are still here if you want to try again.
+        </Alert>
+      )}
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={4}>
         <Box sx={{ flex: 1 }}>
@@ -158,10 +244,9 @@ export default function CheckoutPage() {
                 <FormControl component="fieldset" fullWidth sx={{ mb: 2 }}>
                   <FormLabel sx={{ color: 'var(--foreground-secondary)', mb: 1 }}>Choose fulfillment</FormLabel>
                   <RadioGroup
-                    row
                     value={formData.fulfillmentType}
                     onChange={(e) => setFormData({ ...formData, fulfillmentType: e.target.value as 'pickup' | 'delivery' })}
-                    sx={{ gap: 2 }}
+                    sx={{ gap: 1.25, flexDirection: { xs: 'column', sm: 'row' } }}
                   >
                     <FormControlLabel
                       value="pickup"
@@ -199,10 +284,9 @@ export default function CheckoutPage() {
                 <FormControl component="fieldset" fullWidth>
                   <FormLabel sx={{ color: 'var(--foreground-secondary)', mb: 1 }}>How would you like to pay?</FormLabel>
                   <RadioGroup
-                    row
                     value={formData.paymentMethod}
                     onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as 'cash' | 'card' })}
-                    sx={{ gap: 2 }}
+                    sx={{ gap: 1.25, flexDirection: { xs: 'column', sm: 'row' } }}
                   >
                     <FormControlLabel value="cash" control={<Radio sx={{ color: 'var(--brand-pink)' }} />} label="Cash" />
                     <FormControlLabel value="card" control={<Radio sx={{ color: 'var(--brand-pink)' }} />} label="Card" />
@@ -210,9 +294,9 @@ export default function CheckoutPage() {
                 </FormControl>
               </Box>
 
-              <Stack direction="row" spacing={2}>
-                <Button component={Link} href="/cart" variant="outlined" sx={{ color: 'var(--brand-pink)', borderColor: 'var(--brand-pink)' }}>Back to Cart</Button>
-                <Button type="submit" disabled={isSubmitting} variant="contained" sx={{ background: 'linear-gradient(135deg, var(--brand-pink), #f5316d)', color: '#fff', flex: 1 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <Button component={Link} href="/cart" variant="outlined" sx={{ color: 'var(--brand-pink)', borderColor: 'var(--brand-pink)', width: { xs: '100%', sm: 'auto' } }}>Back to Cart</Button>
+                <Button type="submit" disabled={isSubmitting} variant="contained" sx={{ background: 'linear-gradient(135deg, var(--brand-pink), #f5316d)', color: '#fff', flex: 1, width: { xs: '100%', sm: 'auto' } }}>
                   {isSubmitting ? 'Placing Order...' : 'Place Order'}
                 </Button>
               </Stack>
@@ -220,8 +304,15 @@ export default function CheckoutPage() {
           </form>
         </Box>
 
-        <Box sx={{ flex: 1 }}>
-          <Paper sx={{ backgroundColor: 'var(--card-background)', p: 3, position: 'sticky', top: 20 }}>
+        <Box sx={{ flex: 1, order: { xs: -1, md: 0 } }}>
+          <Paper
+            sx={{
+              backgroundColor: 'var(--card-background)',
+              p: 3,
+              position: isDesktop ? 'sticky' : 'static',
+              top: isDesktop ? 'calc(var(--site-nav-height, 64px) + 16px)' : 'auto',
+            }}
+          >
             <Typography variant="h6" sx={{ mb: 1.5, color: 'var(--brand-pink)', fontFamily: 'Playfair Display' }}>
               Order Summary
             </Typography>

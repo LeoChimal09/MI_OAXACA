@@ -24,6 +24,11 @@ function isCreateOrderInput(value: unknown): value is CreateOrderInput {
 }
 
 export async function GET(request: NextRequest) {
+  const clientIp = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown";
+  if (isRateLimited(`orders-get:${clientIp}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
+  }
+
   const url = new URL(request.url);
   const scope = (url.searchParams.get("scope") ?? "").trim().toLowerCase();
   const session = await getAuthSession();

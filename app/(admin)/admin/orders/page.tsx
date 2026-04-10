@@ -1,6 +1,9 @@
 "use client";
 
 import Box from "@mui/material/Box";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -16,6 +19,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import ConfirmActionDialog from "@/components/shared/ConfirmActionDialog";
@@ -40,6 +44,28 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: "default" | "wa
 };
 
 const WORKFLOW: OrderStatus[] = ["pending", "in_progress", "ready", "completed", "cancelled"];
+
+function getKitchenItemTypeLabel(category: string): "Appetizer" | "Meal" | "Drink" | "Dessert" | "Extra" {
+  const normalized = category.trim().toLowerCase();
+
+  if (normalized === "appetizers") {
+    return "Appetizer";
+  }
+
+  if (normalized === "drinks") {
+    return "Drink";
+  }
+
+  if (normalized === "desserts") {
+    return "Dessert";
+  }
+
+  if (normalized === "extras" || normalized === "à la carte") {
+    return "Extra";
+  }
+
+  return "Meal";
+}
 
 function loadHiddenAdminOrderRefs() {
   if (typeof window === "undefined") {
@@ -243,6 +269,17 @@ export default function AdminOrdersPage() {
                   (sum, entry) => sum + entry.lines.reduce((lineSum, line) => lineSum + line.cartQuantity, 0),
                   0,
                 );
+                const kitchenLines = order.orders.flatMap((entry) => entry.lines);
+                const kitchenSummary = Object.entries(
+                  kitchenLines.reduce<Record<string, number>>((acc, line) => {
+                    const typeLabel = getKitchenItemTypeLabel(line.category);
+                    acc[typeLabel] = (acc[typeLabel] ?? 0) + line.cartQuantity;
+                    return acc;
+                  }, {}),
+                )
+                  .sort(([a], [b]) => a.localeCompare(b))
+                  .map(([label, qty]) => `${qty} ${label}${qty !== 1 ? "s" : ""}`)
+                  .join(" · ");
                 const status = STATUS_CONFIG[order.status];
                 const canRemove = canRemoveOrderFromHistory(order.status);
 
@@ -299,15 +336,78 @@ export default function AdminOrdersPage() {
                             )}
                           </Stack>
 
-                          <Stack alignItems={{ xs: "flex-start", md: "flex-end" }} spacing={0.5}>
+                          <Stack alignItems={{ xs: "flex-start", md: "flex-end" }} spacing={0.25}>
                             <Typography variant="body1" sx={{ fontWeight: 700, color: "primary.main" }}>
-                              ${order.totalPrice.toFixed(2)} subtotal
+                              ${(order.totalPrice * 1.08).toFixed(2)} total
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              ${order.totalPrice.toFixed(2)} + tax
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               {itemCount} item{itemCount !== 1 ? "s" : ""}
                             </Typography>
                           </Stack>
                         </Stack>
+
+                        {/* Order items — compact by default, expandable when needed */}
+                        <Accordion
+                          disableGutters
+                          elevation={0}
+                          sx={{
+                            bgcolor: "transparent",
+                            border: "1px solid",
+                            borderColor: "divider",
+                            borderRadius: 1,
+                            "&:before": { display: "none" },
+                          }}
+                        >
+                          <AccordionSummary
+                            expandIcon={<ExpandMoreIcon fontSize="small" />}
+                            sx={{
+                              minHeight: 40,
+                              px: 1,
+                              "& .MuiAccordionSummary-content": {
+                                my: 0.5,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                flexWrap: "wrap",
+                              },
+                            }}
+                          >
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                              Kitchen items
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {kitchenSummary}
+                            </Typography>
+                          </AccordionSummary>
+                          <AccordionDetails sx={{ px: 1, pt: 0, pb: 1 }}>
+                            <Stack spacing={0.5}>
+                              {kitchenLines.map((line, lineIdx) => (
+                                <Stack
+                                  key={`${order.ref}-${line.id}-${lineIdx}`}
+                                  direction="row"
+                                  justifyContent="space-between"
+                                  alignItems="center"
+                                  spacing={1}
+                                >
+                                  <Typography variant="body2" sx={{ fontSize: "0.86rem" }}>
+                                    <strong>{line.cartQuantity}×</strong> {line.name}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                                    {getKitchenItemTypeLabel(line.category)} · {line.category}
+                                  </Typography>
+                                </Stack>
+                              ))}
+                            </Stack>
+                            {order.form.comment?.trim() && (
+                              <Typography variant="caption" color="warning.main" sx={{ display: "block", mt: 0.75 }}>
+                                Note: {order.form.comment.trim()}
+                              </Typography>
+                            )}
+                          </AccordionDetails>
+                        </Accordion>
 
                         <Divider />
 

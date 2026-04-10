@@ -13,6 +13,8 @@
   --border:            #252a45;   /* subtle borders */
   --foreground:        #f5f0e8;   /* warm off-white text */
   --foreground-muted:  #9aa0bc;   /* secondary text */
+  --foreground-secondary: var(--foreground-muted);
+  --site-nav-height: 64px;
 
   /* Brand — from the "Mi Oaxaca" logo lettering */
   --brand-pink:        #e8197d;   /* hot magenta (logo text) */
@@ -59,6 +61,16 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-body, 'Georgia', serif);
+}
+
+html {
+  color-scheme: dark;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --site-nav-height: 60px;
+  }
 }
 
 /* ─── Utility helpers ─────────────────────────────────────────────────────── */

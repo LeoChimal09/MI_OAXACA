@@ -30,7 +30,7 @@ export default function CartMiniBar() {
         color: '#fff',
         py: { xs: 0.85, sm: 0.95 },
         position: 'sticky',
-        top: 64,
+        top: 'var(--site-nav-height, 64px)',
         zIndex: 45,
       }}
     >
