@@ -53,7 +53,9 @@ export default function CategorySidebar({
           key={category}
           onClick={() => onSelectCategory(category)}
           sx={{
-            minWidth: { xs: 132, sm: 152, md: "auto" },
+            display: "inline-flex",
+            flexShrink: 0,
+            width: "max-content",
             cursor: "pointer",
             transition: "all 0.2s ease",
             border: selectedCategory === category ? "2px solid" : "1px solid",
@@ -65,8 +67,6 @@ export default function CategorySidebar({
                 ? "linear-gradient(135deg, rgba(232,25,125,0.18), rgba(232,25,125,0.08))"
                 : "rgba(12,14,26,0.58)",
             boxShadow: selectedCategory === category ? "var(--glow-pink)" : "var(--shadow-soft)",
-            justifyContent: "flex-start",
-            textAlign: "left",
             "&:hover": {
               transform: { xs: "none", md: "translateY(-2px)" },
               boxShadow: "var(--shadow-deep)",
@@ -80,7 +80,6 @@ export default function CategorySidebar({
               gap: 1.5,
               alignItems: "center",
               p: { xs: 1, md: 1.35 },
-              width: "100%",
             }}
           >
             <Box sx={{ fontSize: { xs: "1.2rem", md: "1.45rem" } }}>
