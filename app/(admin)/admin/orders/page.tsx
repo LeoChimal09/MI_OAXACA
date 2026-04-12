@@ -120,6 +120,11 @@ export default function AdminOrdersPage() {
 
   const visibleOrders = orders.filter((order) => !hiddenOrderRefs.includes(order.ref));
   const showOverflowMask = visibleOrders.length > 3;
+  const liveCounts = {
+    pending: visibleOrders.filter((order) => order.status === 'pending').length,
+    in_progress: visibleOrders.filter((order) => order.status === 'in_progress').length,
+    ready: visibleOrders.filter((order) => order.status === 'ready').length,
+  };
 
   const etaDialogOrder = etaDialogOrderRef
     ? visibleOrders.find((order) => order.ref === etaDialogOrderRef) ?? null
@@ -192,49 +197,86 @@ export default function AdminOrdersPage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
-      <Stack spacing={1} sx={{ mb: 4 }}>
-        <Typography variant="overline" color="secondary.main">
-          {t("admin.area")}
-        </Typography>
-        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={2} sx={{ mb: 1 }}>
-          <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>
-            {t("admin.orders_title")}
-          </Typography>
-          {visibleOrders.length > 0 && visibleOrders.some((order) => canRemoveOrderFromHistory(order.status)) && (
-            <Button
-              variant="outlined"
-              color="error"
-              size="small"
-              onClick={() => {
-                const removableOrders = visibleOrders.filter((order) => canRemoveOrderFromHistory(order.status));
-                setConfirmState({
-                  open: true,
-                  title: t("admin.clear_history_title"),
-                  description: t("admin.clear_history_desc", {
-                    count: removableOrders.length,
-                    suffix: removableOrders.length !== 1 ? "s" : "",
-                  }),
-                  confirmLabel: t("admin.clear_history"),
-                  confirmColor: "error",
-                  onConfirm: () => {
-                    const removable = visibleOrders.filter((order) => canRemoveOrderFromHistory(order.status));
-                    setHiddenOrderRefs((prev) => {
-                      const next = [...new Set([...prev, ...removable.map((o) => o.ref)])];
-                      localStorage.setItem(HIDDEN_ADMIN_ORDER_HISTORY_KEY, JSON.stringify(next));
-                      return next;
-                    });
-                    setConfirmState((prev) => ({ ...prev, open: false }));
-                  },
-                });
-              }}
-            >
-              {t("admin.clear_history")}
-            </Button>
-          )}
-        </Stack>
-        <Typography color="text.secondary">
-          {t("admin.orders_subtitle")}
-        </Typography>
+      <Stack spacing={2} sx={{ mb: 4 }}>
+        <Box
+          sx={{
+            p: { xs: 2, md: 2.5 },
+            borderRadius: 4,
+            border: '1px solid',
+            borderColor: 'divider',
+            background: 'linear-gradient(135deg, rgba(20,24,42,0.96) 0%, rgba(12,14,26,0.96) 72%)',
+            boxShadow: 'var(--shadow-deep)',
+          }}
+        >
+          <Stack spacing={1.25}>
+            <Typography variant="overline" color="secondary.main">
+              {t("admin.area")}
+            </Typography>
+            <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', lg: 'flex-end' }}>
+              <Stack spacing={0.75}>
+                <Typography variant="h3" sx={{ fontSize: { xs: '2rem', sm: '2.6rem' } }}>
+                  {t("admin.orders_title")}
+                </Typography>
+                <Typography color="text.secondary" sx={{ maxWidth: 760 }}>
+                  {t("admin.orders_subtitle")}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('admin.visible_orders', { count: visibleOrders.length, suffix: visibleOrders.length === 1 ? '' : 's' })}
+                </Typography>
+              </Stack>
+
+              <Stack spacing={1} alignItems={{ xs: 'stretch', lg: 'flex-end' }} sx={{ width: { xs: '100%', lg: 'auto' } }}>
+                {visibleOrders.length > 0 && visibleOrders.some((order) => canRemoveOrderFromHistory(order.status)) && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    sx={{ alignSelf: { xs: 'flex-start', lg: 'flex-end' } }}
+                    onClick={() => {
+                      const removableOrders = visibleOrders.filter((order) => canRemoveOrderFromHistory(order.status));
+                      setConfirmState({
+                        open: true,
+                        title: t("admin.clear_history_title"),
+                        description: t("admin.clear_history_desc", {
+                          count: removableOrders.length,
+                          suffix: removableOrders.length !== 1 ? "s" : "",
+                        }),
+                        confirmLabel: t("admin.clear_history"),
+                        confirmColor: "error",
+                        onConfirm: () => {
+                          const removable = visibleOrders.filter((order) => canRemoveOrderFromHistory(order.status));
+                          setHiddenOrderRefs((prev) => {
+                            const next = [...new Set([...prev, ...removable.map((o) => o.ref)])];
+                            localStorage.setItem(HIDDEN_ADMIN_ORDER_HISTORY_KEY, JSON.stringify(next));
+                            return next;
+                          });
+                          setConfirmState((prev) => ({ ...prev, open: false }));
+                        },
+                      });
+                    }}
+                  >
+                    {t("admin.clear_history")}
+                  </Button>
+                )}
+
+                <Stack direction={{ xs: 'row', md: 'row' }} spacing={1} useFlexGap flexWrap="wrap">
+                <Box sx={{ minWidth: 118, px: 1.25, py: 1, borderRadius: 3, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', gap: 0.35, textAlign: 'center' }}>
+                  <Typography variant="caption" sx={{ color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.1 }}>{t('status.pending')}</Typography>
+                  <Typography sx={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--foreground)', lineHeight: 1, width: '100%', textAlign: 'center' }}>{liveCounts.pending}</Typography>
+                </Box>
+                <Box sx={{ minWidth: 118, px: 1.25, py: 1, borderRadius: 3, border: '1px solid rgba(245,197,24,0.18)', background: 'rgba(245,197,24,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', gap: 0.35, textAlign: 'center' }}>
+                  <Typography variant="caption" sx={{ color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.1 }}>{t('status.in_progress')}</Typography>
+                  <Typography sx={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--accent-gold)', lineHeight: 1, width: '100%', textAlign: 'center' }}>{liveCounts.in_progress}</Typography>
+                </Box>
+                <Box sx={{ minWidth: 118, px: 1.25, py: 1, borderRadius: 3, border: '1px solid rgba(6,182,212,0.18)', background: 'rgba(6,182,212,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', gap: 0.35, textAlign: 'center' }}>
+                  <Typography variant="caption" sx={{ color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.1 }}>{t('status.ready')}</Typography>
+                  <Typography sx={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--accent-teal)', lineHeight: 1, width: '100%', textAlign: 'center' }}>{liveCounts.ready}</Typography>
+                </Box>
+                </Stack>
+              </Stack>
+            </Stack>
+          </Stack>
+        </Box>
       </Stack>
 
       {visibleOrders.length === 0 ? (

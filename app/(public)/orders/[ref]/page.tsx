@@ -47,6 +47,8 @@ const STATUS_CONFIG: Record<
   },
 };
 
+const STATUS_ORDER: OrderStatus[] = ['pending', 'in_progress', 'ready', 'completed'];
+
 type ConfirmState = {
   open: boolean;
   title: string;
@@ -109,6 +111,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
   const fullName = `${order.form.firstName} ${order.form.lastName}`.trim();
   const isDelivery = order.form.fulfillment === 'delivery';
   const status = STATUS_CONFIG[order.status];
+  const progressIndex = STATUS_ORDER.indexOf(order.status);
   const pickupMessageKey: Record<OrderStatus, string> = {
     pending: 'order_detail.pickup_pending',
     in_progress: 'order_detail.pickup_in_progress',
@@ -164,14 +167,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
       <Container maxWidth="lg">
         <Stack spacing={3}>
           <Box
+            className="altar-surface"
             sx={{
               p: { xs: 2, md: 2.5 },
               borderRadius: 3,
-              border: '1px solid',
-              borderColor: 'divider',
-              background: 'rgba(12,14,26,0.56)',
               backdropFilter: 'blur(8px)',
-              boxShadow: 'var(--shadow-soft)',
             }}
           >
             <Stack spacing={1.25}>
@@ -190,9 +190,88 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
                     {t('order_detail.placed', { date: formatOrderTimestamp(order.placedAt) })}
                   </Typography>
                 </Stack>
+                <Box
+                  sx={{
+                    minWidth: { sm: 220 },
+                    width: { xs: '100%', sm: 'auto' },
+                    p: 1.1,
+                    borderRadius: 3,
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.035)',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', textAlign: 'center' }}>
+                    {t('order_detail.current_status')}
+                  </Typography>
+                  <Typography sx={{ color: 'var(--foreground)', fontWeight: 800, mt: 0.35, textAlign: 'center' }}>
+                    {t(`status.${order.status}`)}
+                  </Typography>
+                </Box>
               </Stack>
             </Stack>
           </Box>
+
+        {order.status !== 'cancelled' && (
+          <Card
+            variant="outlined"
+            sx={{
+              background: 'rgba(19,22,41,0.78)',
+              boxShadow: 'var(--shadow-soft)',
+            }}
+          >
+            <CardContent>
+              <Stack spacing={1.2}>
+                <Typography variant="subtitle2" sx={{ color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  {t('order_detail.progress')}
+                </Typography>
+                <Stack direction="row" spacing={{ xs: 0.9, sm: 1.25 }} alignItems="flex-start" sx={{ overflowX: 'auto', pb: 0.25, pt: 0.25 }}>
+                  {STATUS_ORDER.map((step, index) => {
+                    const isActive = step === order.status;
+                    const isComplete = progressIndex >= index && progressIndex !== -1;
+
+                    return (
+                      <Stack key={step} direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 'fit-content' }}>
+                        <Stack spacing={0.55} alignItems="center" justifyContent="flex-start" sx={{ minWidth: { xs: 74, sm: 84 } }}>
+                          <Box
+                            sx={{
+                              width: 13,
+                              height: 13,
+                              borderRadius: '50%',
+                              background: isComplete ? 'var(--brand-pink)' : 'rgba(255,255,255,0.12)',
+                              boxShadow: isActive ? '0 0 0 6px rgba(232,25,125,0.12)' : 'none',
+                            }}
+                          />
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: isActive ? 'var(--foreground)' : 'var(--foreground-muted)',
+                              fontWeight: isActive ? 700 : 500,
+                              textAlign: 'center',
+                              lineHeight: 1.15,
+                            }}
+                          >
+                            {t(`status.${step}`)}
+                          </Typography>
+                        </Stack>
+                        {index < STATUS_ORDER.length - 1 && (
+                          <Box
+                            sx={{
+                              width: { xs: 24, sm: 52 },
+                              height: 2,
+                              borderRadius: 999,
+                              background: progressIndex > index ? 'var(--brand-pink)' : 'rgba(255,255,255,0.08)',
+                            }}
+                          />
+                        )}
+                      </Stack>
+                    );
+                  })}
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
 
         <Card
           variant="outlined"

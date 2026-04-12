@@ -79,6 +79,7 @@ export default function MenuPage() {
       }, [pendingLines, lastAddedItem, locale]);
 
   const pendingSubtotal = pendingLines.reduce((s, l) => s + l.item.price * l.quantity, 0);
+  const pendingItemCount = pendingLines.reduce((sum, line) => sum + line.quantity, 0);
 
   const handleItemAdded = (item: MenuItem) => {
     setPendingLines((prev) => {
@@ -122,36 +123,42 @@ export default function MenuPage() {
   };
 
   return (
-    <Box sx={{ minHeight: "calc(100vh - var(--site-nav-height, 64px))" }}>
+    <Box sx={{ minHeight: "calc(100vh - var(--site-nav-height, 64px))", pb: pendingLines.length > 0 ? { xs: 11, md: 0 } : 0 }}>
       <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
         {/* Header */}
         <Stack
-          spacing={1}
+          spacing={1.25}
+          className="altar-surface"
           sx={{
             mb: { xs: 2.5, md: 4 },
-            p: { xs: 1.5, md: 2 },
-            borderRadius: 3,
-            border: "1px solid",
-            borderColor: "divider",
-            background: "rgba(12,14,26,0.52)",
+            p: { xs: 1.75, md: 2.5 },
+            borderRadius: 4,
             backdropFilter: "blur(8px)",
           }}
         >
-          <Typography variant="overline" color="primary.main" sx={{ letterSpacing: "0.2em" }}>
-            Mi Oaxaca — 637 1st St, Silvis, IL
-          </Typography>
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: 900, fontFamily: "var(--font-display)", fontSize: { xs: "2rem", md: "2.25rem" } }}
-          >
-            {t("menu.title")}
-          </Typography>
-          <Typography color="text.secondary" sx={{ maxWidth: 520 }}>
-            {t("menu.subtitle")}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {t("menu.allergy")}
-          </Typography>
+          <Stack spacing={1} sx={{ maxWidth: 760, pt: 0.75 }}>
+            <Typography variant="overline" color="primary.main" sx={{ letterSpacing: "0.2em" }}>
+              Mi Oaxaca — 637 1st St, Silvis, IL
+            </Typography>
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 900, fontFamily: "var(--font-display)", fontSize: { xs: "2.2rem", md: "3rem" }, lineHeight: 0.95 }}
+            >
+              {t("menu.title")}
+            </Typography>
+            <Typography color="text.secondary" sx={{ maxWidth: 560, fontSize: { xs: "0.96rem", md: "1rem" } }}>
+              {t("menu.subtitle")}
+            </Typography>
+          </Stack>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ pt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {t("menu.allergy")}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: { xs: 'left', sm: 'right' } }}>
+              {categoryLabel(selectedCategory)} · {t("menu.item_count", { count: filteredItems.length, suffix: filteredItems.length !== 1 ? 's' : '' })}
+            </Typography>
+          </Stack>
         </Stack>
 
         <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 2.25, md: 3.5 }} alignItems="flex-start">
@@ -172,9 +179,9 @@ export default function MenuPage() {
                 justifyContent="space-between"
                 alignItems={{ xs: "flex-start", sm: "center" }}
                 spacing={1}
-                sx={{ px: { xs: 0.25, sm: 0.5 } }}
+                sx={{ px: { xs: 0.25, sm: 0.5 }, pb: 0.25 }}
               >
-                <Typography variant="h5" sx={{ fontFamily: "var(--font-display)", fontWeight: 800 }}>
+                <Typography variant="h5" sx={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: { xs: '1.6rem', sm: '1.8rem' } }}>
                   {categoryLabel(selectedCategory)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
@@ -189,6 +196,40 @@ export default function MenuPage() {
           </Box>
         </Stack>
       </Container>
+
+      {pendingLines.length > 0 && !modalOpen && (
+        <Box
+          sx={{
+            position: 'fixed',
+            left: { xs: 12, sm: 20 },
+            right: { xs: 12, sm: 20 },
+            bottom: { xs: 12, sm: 18 },
+            zIndex: 40,
+            display: { xs: 'block', md: 'none' },
+          }}
+        >
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={() => setModalOpen(true)}
+            sx={{
+              justifyContent: 'space-between',
+              px: 2,
+              py: 1.25,
+              borderRadius: 999,
+              boxShadow: 'var(--shadow-deep)',
+            }}
+          >
+            <Stack alignItems="flex-start" spacing={0.15}>
+              <Typography sx={{ fontWeight: 800, lineHeight: 1.1 }}>{t('menu.review_order')}</Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.78)' }}>
+                {t('menu.selected_items', { count: pendingItemCount, suffix: pendingItemCount === 1 ? '' : 's' })}
+              </Typography>
+            </Stack>
+            <Typography sx={{ fontWeight: 900 }}>${pendingSubtotal.toFixed(2)}</Typography>
+          </Button>
+        </Box>
+      )}
 
       {/* Add-to-order dialog */}
       <Dialog

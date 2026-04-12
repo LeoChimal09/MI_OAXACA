@@ -44,6 +44,7 @@
   --shadow-deep:       0 16px 40px rgba(2, 5, 16, 0.55);
   --hero-gradient:     linear-gradient(180deg, #0c0e1a 0%, #0b1022 55%, #0a0f20 100%);
   --festive-border:    linear-gradient(90deg, var(--brand-pink), var(--accent-orange), var(--accent-gold), var(--accent-teal), var(--accent-purple));
+  --altar-panel:       linear-gradient(135deg, rgba(232,25,125,0.08) 0%, rgba(245,197,24,0.06) 38%, rgba(6,182,212,0.05) 100%), rgba(14, 18, 32, 0.94);
 }
 
 @theme inline {
@@ -143,6 +144,35 @@ a {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(6px);
+}
+
+.altar-surface {
+  position: relative;
+  background: var(--altar-panel);
+  border: 1px solid rgba(120, 128, 170, 0.18);
+  box-shadow: var(--shadow-deep);
+  overflow: hidden;
+}
+.altar-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 18px;
+  opacity: 0.45;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(232,25,125,0.32), rgba(245,197,24,0.22), rgba(6,182,212,0.18));
+}
+
+
+.altar-surface::after {
+  content: "";
+  position: absolute;
+  inset: auto -60px -80px auto;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(245,197,24,0.12) 0%, rgba(245,197,24,0) 68%);
+  pointer-events: none;
 }
 
 .reveal-up {

@@ -12,7 +12,7 @@ import {
 } from "@/features/checkout/order-status";
 import { getAuthSession, isAdminSession } from "@/lib/auth";
 import { isRateLimited, getRemainingAttempts } from "@/lib/rate-limiter";
-import { sendCustomerOrderStatusUpdateEmail } from "@/lib/resend-mailer";
+import { sendCustomerOrderStatusUpdateEmail, sendAdminOrderCancelledEmail } from "@/lib/resend-mailer";
 
 const VALID_ORDER_STATUSES: OrderStatus[] = [
   "pending",
@@ -218,6 +218,12 @@ export async function PATCH(request: NextRequest, context: OrderRouteContext) {
 
   if (shouldEmailCustomer) {
     void sendCustomerOrderStatusUpdateEmail({ email: recipientEmails, order }).catch(() => undefined);
+  }
+
+  // Notify admin if customer cancelled the order
+  const isCustomerCancellation = order.status === "cancelled" && parsedCancelledBy === "customer" && existingOrder.status !== "cancelled";
+  if (isCustomerCancellation) {
+    void sendAdminOrderCancelledEmail({ order, cancellationNote: parsedCancellationNote }).catch(() => undefined);
   }
 
   return NextResponse.json(order);
