@@ -1,29 +1,10 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Lato, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { I18nProvider } from "@/components/shared/I18nProvider";
 import MuiThemeProvider from "@/components/shared/MuiThemeProvider";
 import SessionWrapper from "@/components/shared/SessionWrapper";
 import { CartProvider } from "@/features/cart/CartContext";
 import { OrderHistoryProvider } from "@/features/checkout/OrderHistoryContext";
-
-/** Display font for headings — warm serif that suits the brand */
-const playfair = Playfair_Display({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["400", "700", "900"],
-});
-
-/** Body font — clean and highly readable */
-const lato = Lato({
-  variable: "--font-body",
-  subsets: ["latin"],
-  weight: ["300", "400", "700"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Mi Oaxaca — Tacos y Más",
@@ -38,17 +19,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${playfair.variable} ${lato.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <SessionWrapper>
-          <MuiThemeProvider>
-            <CartProvider>
-              <OrderHistoryProvider>{children}</OrderHistoryProvider>
-            </CartProvider>
-          </MuiThemeProvider>
+          <I18nProvider>
+            <MuiThemeProvider>
+              <CartProvider>
+                <OrderHistoryProvider>{children}</OrderHistoryProvider>
+              </CartProvider>
+            </MuiThemeProvider>
+          </I18nProvider>
         </SessionWrapper>
       </body>
     </html>

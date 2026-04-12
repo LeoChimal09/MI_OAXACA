@@ -14,11 +14,10 @@ export default function MenuGridWithCart({ items, onItemAdded }: MenuGridWithCar
     <Box
       sx={{
         display: "grid",
-        gap: 2,
+        gap: { xs: 1, sm: 1.15, lg: 1.25 },
         gridTemplateColumns: {
           xs: "1fr",
-          sm: "repeat(2, minmax(0, 1fr))",
-          md: "repeat(3, minmax(0, 1fr))",
+          sm: "repeat(2, 1fr)",
         },
       }}
     >

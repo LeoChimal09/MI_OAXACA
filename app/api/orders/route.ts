@@ -9,7 +9,7 @@ import type { CreateOrderInput } from "@/features/checkout/checkout.types";
 import { calculateOrderSubtotal } from "@/features/checkout/order-pricing";
 import { getAuthSession, isAdminSession } from "@/lib/auth";
 import { isRateLimited } from "@/lib/rate-limiter";
-import { sendAdminNewOrderEmail, sendCustomerOrderReceivedEmail } from "@/lib/resend-mailer";
+import { sendAdminNewOrderEmail } from "@/lib/resend-mailer";
 
 const MAX_GUEST_REFS = 50;
 const ORDER_REF_PATTERN = /^(MIO|TBL)-[A-Z0-9-]{6,64}$/;
@@ -24,6 +24,11 @@ function isCreateOrderInput(value: unknown): value is CreateOrderInput {
 }
 
 export async function GET(request: NextRequest) {
+  const clientIp = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown";
+  if (isRateLimited(`orders-get:${clientIp}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
+  }
+
   const url = new URL(request.url);
   const scope = (url.searchParams.get("scope") ?? "").trim().toLowerCase();
   const session = await getAuthSession();
@@ -93,7 +98,6 @@ export async function POST(request: NextRequest) {
 
     if (order.paymentStatus === "paid") {
       void sendAdminNewOrderEmail({ order }).catch(() => undefined);
-      void sendCustomerOrderReceivedEmail({ email: order.form.email.trim().toLowerCase(), order }).catch(() => undefined);
     }
 
     return NextResponse.json(order, { status: 201 });

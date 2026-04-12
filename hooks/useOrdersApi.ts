@@ -98,7 +98,7 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
 }
 
 export function useOrdersApi(options: UseOrdersApiOptions = {}) {
-  const { ref, enabled = true, pollIntervalMs = 3000, mode = "guest" } = options;
+  const { ref, enabled = true, pollIntervalMs = 0, mode = "guest" } = options;
   const [orders, setOrders] = useState<PlacedOrder[]>([]);
   const [order, setOrder] = useState<PlacedOrder | null>(null);
   const [loading, setLoading] = useState(enabled);
@@ -147,7 +147,6 @@ export function useOrdersApi(options: UseOrdersApiOptions = {}) {
       }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to load orders.");
-      setOrder(null);
       if (!ref) {
         setOrders([]);
       }
@@ -165,6 +164,10 @@ export function useOrdersApi(options: UseOrdersApiOptions = {}) {
     }
 
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return;
+      }
+
       void refetch();
     }, pollIntervalMs);
 

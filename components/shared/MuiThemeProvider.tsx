@@ -31,7 +31,7 @@ const appTheme = createTheme({
     },
     background: {
       default: "#0c0e1a", // deep dark navy — truck body
-      paper: "#131629",
+      paper: "rgba(19,22,41,0.88)",
     },
     text: {
       primary: "#f5f0e8",
@@ -40,14 +40,14 @@ const appTheme = createTheme({
     divider: "#252a45",
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 14,
   },
   typography: {
-    fontFamily: '"Lato", "Helvetica Neue", sans-serif',
+    fontFamily: 'var(--font-body, "Lato", "Helvetica Neue", sans-serif)',
     h1: { fontWeight: 900 },
     h2: { fontWeight: 900 },
-    h3: { fontWeight: 700 },
-    h4: { fontWeight: 700 },
+    h3: { fontWeight: 800 },
+    h4: { fontWeight: 800 },
     h5: { fontWeight: 700 },
     h6: { fontWeight: 600 },
     button: {
@@ -60,17 +60,56 @@ const appTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: "none",
+          background: "var(--card-background)",
+          border: "1px solid #252a45",
+          boxShadow: "var(--shadow-soft)",
+          backdropFilter: "blur(6px)",
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: "none",
+          background: "var(--card-background)",
           border: "1px solid #252a45",
         },
       },
     },
     MuiButton: {
       styleOverrides: {
+        root: {
+          borderRadius: 999,
+          paddingInline: "1rem",
+        },
         containedPrimary: {
           background: "linear-gradient(135deg, #e8197d 0%, #b5105e 100%)",
+          boxShadow: "var(--glow-pink)",
           "&:hover": {
             background: "linear-gradient(135deg, #ff4fa3 0%, #e8197d 100%)",
           },
+        },
+        outlined: {
+          borderColor: "rgba(245, 197, 24, 0.55)",
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          "& .MuiOutlinedInput-root": {
+            background: "rgba(12,14,26,0.45)",
+            borderRadius: 12,
+          },
+        },
+      },
+    },
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          background: "var(--surface-glass)",
+          backdropFilter: "blur(10px)",
+          borderLeft: "1px solid #252a45",
         },
       },
     },
@@ -78,6 +117,7 @@ const appTheme = createTheme({
       styleOverrides: {
         root: {
           fontWeight: 600,
+          borderRadius: 999,
         },
       },
     },

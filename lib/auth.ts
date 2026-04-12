@@ -226,7 +226,7 @@ export const authOptions: NextAuthOptions = {
 
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, profile }) {
       if (user?.email) {
         token.email = user.email;
       }
@@ -235,6 +235,14 @@ export const authOptions: NextAuthOptions = {
       }
       if (user && "isAdminIntent" in user) {
         token.adminIntent = user.isAdminIntent === true;
+      }
+
+      // Persist Google profile picture on first sign-in
+      const googlePicture =
+        (profile as { picture?: string } | undefined)?.picture ??
+        (user as { image?: string } | undefined)?.image;
+      if (googlePicture) {
+        token.picture = googlePicture;
       }
 
       if (account?.provider) {
@@ -252,6 +260,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.email = token.email;
         if (token.name) session.user.name = token.name as string;
+        if (token.picture) session.user.image = token.picture as string;
       }
       (session as AdminAwareSession).isAdmin = token.isAdmin === true;
       return session;

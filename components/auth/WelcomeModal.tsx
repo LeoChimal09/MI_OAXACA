@@ -15,6 +15,7 @@ import { useTheme } from "@mui/material/styles";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/shared/I18nProvider";
 
 const GREETED_KEY = "mioaxaca_greeted";
 
@@ -37,6 +38,7 @@ function shouldAutoOpenWelcomeModal(isAuthenticated: boolean) {
 }
 
 export default function WelcomeModal({ isAuthenticated }: WelcomeModalProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
@@ -116,7 +118,7 @@ export default function WelcomeModal({ isAuthenticated }: WelcomeModalProps) {
         return;
       }
 
-      setError(payload?.error ?? "Something went wrong. Please try again.");
+      setError(payload?.error ?? t("welcome.error_generic"));
       return;
     }
 
@@ -134,11 +136,11 @@ export default function WelcomeModal({ isAuthenticated }: WelcomeModalProps) {
         return;
       }
 
-      setError("Test admin sign-in failed. Verify ADMIN_TEST_MODE and TEST_ADMIN_EMAILS.");
+      setError(t("welcome.error_test_admin"));
       return;
     }
 
-    setSuccess("Check your email for a secure sign-in link. It expires in 15 minutes.");
+    setSuccess(t("welcome.success"));
     setDevelopmentSignInUrl(payload?.developmentSignInUrl ?? null);
     router.refresh();
   }
@@ -165,13 +167,13 @@ export default function WelcomeModal({ isAuthenticated }: WelcomeModalProps) {
             color="text.secondary"
             textAlign="center"
           >
-            Sign in to track your orders and view your dining history, or continue as a guest.
+            {t("welcome.copy")}
           </Typography>
 
           {/* Sign in / Create account tabs */}
           <Tabs value={mode} onChange={handleModeChange} centered>
-            <Tab label="Sign In" value="signin" />
-            <Tab label="Create Account" value="signup" />
+            <Tab label={t("welcome.sign_in")} value="signin" />
+            <Tab label={t("welcome.create_account")} value="signup" />
           </Tabs>
 
           {/* Form */}
@@ -179,7 +181,7 @@ export default function WelcomeModal({ isAuthenticated }: WelcomeModalProps) {
             <Stack spacing={2}>
               {mode === "signup" && (
                 <TextField
-                  label="Name"
+                  label={t("welcome.name")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
@@ -190,7 +192,7 @@ export default function WelcomeModal({ isAuthenticated }: WelcomeModalProps) {
                 />
               )}
               <TextField
-                label="Email"
+                label={t("welcome.email")}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -218,7 +220,7 @@ export default function WelcomeModal({ isAuthenticated }: WelcomeModalProps) {
                     window.location.href = developmentSignInUrl;
                   }}
                 >
-                  Open test sign-in link
+                  {t("welcome.open_test_link")}
                 </Button>
               )}
               <Button
@@ -228,10 +230,10 @@ export default function WelcomeModal({ isAuthenticated }: WelcomeModalProps) {
                 disabled={loading}
               >
                 {loading
-                  ? "Please wait…"
+                  ? t("welcome.loading")
                   : mode === "signin"
-                    ? "Email Me a Sign-In Link"
-                    : "Create Account and Email Me a Link"}
+                    ? t("welcome.email_sign_in_link")
+                    : t("welcome.create_and_email")}
               </Button>
             </Stack>
           </Box>
@@ -243,7 +245,7 @@ export default function WelcomeModal({ isAuthenticated }: WelcomeModalProps) {
             onClick={handleDismiss}
             sx={{ alignSelf: "center" }}
           >
-            Continue as guest
+            {t("welcome.continue_guest")}
           </Button>
         </Stack>
       </DialogContent>

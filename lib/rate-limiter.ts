@@ -41,3 +41,19 @@ export function getRemainingAttempts(key: string, limit: number): number {
 
   return Math.max(0, limit - entry.count);
 }
+
+/**
+ * Remove expired entries to prevent unbounded memory growth.
+ * Called automatically every 5 minutes.
+ */
+export function cleanupExpiredEntries(): void {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (now >= entry.resetAt) {
+      rateLimitStore.delete(key);
+    }
+  }
+}
+
+// Automatically clean up expired entries every 5 minutes.
+setInterval(cleanupExpiredEntries, 5 * 60 * 1000);

@@ -418,3 +418,70 @@ export const menuItems: MenuItem[] = [
     available: true,
   },
 ];
+
+const MENU_ES: Record<string, { name?: string; description?: string }> = {
+  "app-1": { description: "Queso derretido con chorizo mexicano" },
+  "app-2": { description: "Guacamole fresco hecho a mano" },
+  "app-3": { description: "(4) Mini tortillas de maiz con carne, queso y salsa" },
+  "cls-1": { description: "Queso derretido, mayo, frijoles, lechuga, tomate, aguacate, cebolla — (W) contiene trigo" },
+  "cls-2": { description: "Mayo, lechuga, tomate, cebolla, queso — (3 flautas)" },
+  "cls-3": { description: "Tortilla grande de harina, arroz, frijoles, lechuga, tomate, cebolla, queso" },
+  "cls-4": { description: "2 tortillas de maiz rellenas, frijoles, col, queso" },
+  "cls-5": { description: "Tortilla de harina con queso, servida con crema y pico de gallo" },
+  "cls-6": { description: "2 tostadas con frijoles, lechuga, tomate, cebolla y queso" },
+  "cls-7": { description: "Chile poblano relleno de queso en salsa de tomate" },
+  "tac-1": { description: "Barbacoa, queso derretido, consome, cilantro y cebolla" },
+  "tac-2": { description: "Cilantro y cebolla — elige tu carne" },
+  "tac-3": { description: "Camaron cocinado con verduras y queso derretido" },
+  "trad-1": { name: "Mole de Pollo", description: "Autentico mole negro oaxaqueno con arroz y tortillas, decorado con ajonjoli tostado — **contiene nueces" },
+  "trad-2": { name: "Mole de Puerco", description: "Trozos de puerco frito en salsa de mole picante, servido con arroz, tortillas y queso fresco" },
+  "trad-3": { description: "Res cocida lentamente con chiles y especias tradicionales, ensalada de pasta, arroz, tortillas y salsa verde de aguacate" },
+  "trad-4": { description: "Tortilla grande de maiz crujiente con asiento, frijoles, queso oaxaqueno, col, tomate, cebolla y aguacate — rinde para 2-3" },
+  "trad-5": { description: "Envuelto en hoja de platano, mole de pollo o puerco en salsa roja" },
+  "trad-6": { description: "(3) Tortillas hechas a mano de maiz o harina rellenas de pollo, con salsa roja o verde y queso fresco" },
+  "trad-7": { description: "Bistec asado, lomo enchilado, chorizo y pollo asado con arroz, frijoles, jalapeno asado, cebolla, nopal y tortillas" },
+  "sea-1": { description: "Pescado frito servido con arroz, frijoles, ensalada y guarnicion de mayonesa" },
+  "sea-2": { description: "Camarones salteados con ajo, arroz, ensalada y tortillas" },
+  "sea-3": { description: "Camarones cocinados con cebolla en salsa chipotle, con arroz y tortillas" },
+  "kid-1": { name: "Taco Infantil", description: "Menores de 12 anos · Incluye bebida chica, arroz, frijoles o papas" },
+  "kid-2": { name: "Quesadilla Infantil", description: "Menores de 12 anos · Incluye bebida chica, arroz, frijoles o papas" },
+  "kid-3": { name: "Tiritas de Pollo Infantil", description: "Menores de 12 anos · Incluye bebida chica, arroz, frijoles o papas" },
+  "alc-1": { description: "Taco individual — elige carne, cilantro y cebolla" },
+  "alc-2": { description: "Taco de quesabirria individual con consome" },
+  "alc-3": { description: "Tostada crujiente con frijoles" },
+  "alc-4": { description: "Tamal individual — mole de pollo o puerco en salsa roja" },
+  "alc-5": { description: "Gordita individual de maiz rellena" },
+  "alc-6": { description: "Tortilla de harina con queso" },
+  "ext-1": { name: "Queso", description: "Porcion de queso" },
+  "ext-2": { name: "Crema", description: "Porcion de crema" },
+  "ext-3": { name: "Aguacate", description: "Porcion de aguacate fresco" },
+  "ext-4": { name: "Dip de Frijol", description: "Porcion de dip de frijol" },
+  "ext-5": { name: "Jalapeno", description: "Porcion de jalapeno" },
+  "ext-6": { name: "Tortillas", description: "Porcion de tortillas" },
+  "des-1": { description: "Flan clasico cremoso de caramelo" },
+  "des-2": { description: "Masa frita espolvoreada con azucar y canela" },
+  "des-3": { description: "Platano frito con leche condensada" },
+  "des-4": { name: "Pastel Tres Leches", description: "Pastel humedo de tres leches" },
+  "drk-1": { name: "Refresco de Fuente", description: "Variedad de bebidas de fuente" },
+  "drk-2": { description: "Horchata, jamaica o tamarindo" },
+  "drk-3": { description: "Refresco mexicano de frutas" },
+  "drk-4": { name: "Coca Mexicana", description: "Botella de vidrio Coca-Cola hecha con azucar de cana" },
+  "drk-5": { description: "Refresco de naranja Fanta" },
+};
+
+export function localizeMenuItem(item: MenuItem, locale: "en" | "es"): MenuItem {
+  if (locale !== "es") {
+    return item;
+  }
+
+  const translated = MENU_ES[item.id];
+  if (!translated) {
+    return item;
+  }
+
+  return {
+    ...item,
+    name: translated.name ?? item.name,
+    description: translated.description ?? item.description,
+  };
+}

@@ -1,32 +1,91 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useOrderHistory } from '@/features/checkout/OrderHistoryContext';
+import { useCart } from '@/features/cart/CartContext';
+import { useOrdersApi } from '@/hooks/useOrdersApi';
 import {
   Container,
-  Paper,
   Button,
   Typography,
   Box,
   Stack,
   Divider,
-  Alert,
+  Chip,
+  Card,
+  CardContent,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useI18n } from '@/components/shared/I18nProvider';
+import type { OrderStatus } from '@/features/checkout/checkout.types';
 
 export default function OrderConfirmationPage() {
-  const searchParams = useSearchParams();
-  const { getOrder } = useOrderHistory();
-  const ref = searchParams.get('ref');
-  const order = ref ? getOrder(ref) : undefined;
+  const { t } = useI18n();
+  const params = useSearchParams();
+  const ref = params.get('ref');
+  const payment = params.get('payment');
+  const sessionId = params.get('session_id');
+  const { clearCart } = useCart();
+  const { order, loading, error, refetch } = useOrdersApi({
+    ref,
+    enabled: Boolean(ref),
+    pollIntervalMs: 0,
+  });
 
-  if (!order) {
+  useEffect(() => {
+    if (payment === 'success') {
+      clearCart();
+    }
+  }, [payment, clearCart]);
+
+  useEffect(() => {
+    if (payment !== 'success' || !ref || !sessionId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function confirmStripePayment() {
+      await fetch('/api/payments/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref, sessionId }),
+      }).catch(() => null);
+
+      if (!cancelled) {
+        void refetch();
+      }
+    }
+
+    void confirmStripePayment();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [payment, ref, sessionId, refetch]);
+
+  const notFound = !ref || (!loading && !order);
+
+  if (loading) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 8, textAlign: 'center' }}>
+        <Typography color="text.secondary">{t('order_confirmation.loading')}</Typography>
+      </Container>
+    );
+  }
+
+  if (notFound) {
     return (
       <Container maxWidth="md" sx={{ py: 8 }}>
         <Stack spacing={3} alignItems="center" textAlign="center">
           <Typography variant="h4" sx={{ color: 'var(--foreground)' }}>
-            Order not found
+            {t('order_confirmation.not_found')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {error ?? t('order_confirmation.not_found_copy')}
           </Typography>
           <Button
             component={Link}
@@ -34,128 +93,156 @@ export default function OrderConfirmationPage() {
             variant="contained"
             sx={{ background: 'linear-gradient(135deg, var(--brand-pink), #f5316d)', color: '#fff' }}
           >
-            Back to Menu
+            {t('checkout.back_menu')}
           </Button>
         </Stack>
       </Container>
     );
   }
 
-  const placedTime = new Date(order.placedAt);
-  const etaTime = new Date(placedTime.getTime() + 30 * 60 * 1000);
+  if (!order) {
+    return null;
+  }
+
+  const { form, orders, totalPrice } = order;
+  const tax = totalPrice * 0.08;
+  const total = totalPrice + tax;
+  const isDelivery = form.fulfillment === 'delivery';
+  const paymentStatusLabel = order.paymentStatus ? order.paymentStatus.replaceAll('_', ' ') : 'paid';
+  const pickupMessageKey: Record<OrderStatus, string> = {
+    pending: 'order_detail.pickup_pending',
+    in_progress: 'order_detail.pickup_in_progress',
+    ready: 'order_detail.pickup_ready',
+    completed: 'order_detail.pickup_completed',
+    cancelled: 'order_detail.pickup_cancelled',
+  };
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Box sx={{ textAlign: 'center', mb: 4 }}>
-        <CheckCircleIcon sx={{ fontSize: '4rem', color: '#22c55e', mb: 2 }} />
-        <Typography variant="h3" sx={{ color: 'var(--foreground)', fontFamily: 'Playfair Display', mb: 1 }}>
-          Order Confirmed!
-        </Typography>
-        <Typography variant="body1" sx={{ color: 'var(--foreground-secondary)' }}>
-          Thank you for your order, {order.form.firstName}!
-        </Typography>
-      </Box>
-
-      <Paper sx={{ backgroundColor: 'rgba(232, 25, 125, 0.1)', border: '2px solid var(--brand-pink)', p: 3, textAlign: 'center', mb: 4 }}>
-        <Typography variant="body2" sx={{ color: 'var(--foreground-secondary)', mb: 1 }}>
-          Order Reference
-        </Typography>
-        <Typography variant="h4" sx={{ color: 'var(--brand-pink)', fontFamily: 'Playfair Display', fontSize: '2.5rem', letterSpacing: '2px', mb: 2 }}>
-          {order.ref}
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'var(--foreground-secondary)' }}>
-          Save this reference to track your order
-        </Typography>
-      </Paper>
-
-      <Alert severity="info" sx={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: '#3b82f6', mb: 4, color: 'var(--foreground)' }}>
-        A confirmation email has been sent to <strong>{order.form.email}</strong>
-      </Alert>
-
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} sx={{ mb: 4 }}>
-        <Box sx={{ flex: 1 }}>
-          <Paper sx={{ backgroundColor: 'var(--card-background)', p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, color: 'var(--brand-pink)', fontFamily: 'Playfair Display' }}>
-              Items
-            </Typography>
-            <Stack spacing={1.5} sx={{ mb: 3 }}>
-              {order.orders.flatMap((entry) => entry.lines).map((item, idx) => (
-                <Box key={`${item.id}-${idx}`} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography sx={{ color: 'var(--foreground)' }}>
-                    {item.cartQuantity}x {item.name}
-                  </Typography>
-                  <Typography sx={{ color: 'var(--foreground)' }}>
-                    ${(item.price * item.cartQuantity).toFixed(2)}
-                  </Typography>
-                </Box>
-              ))}
-            </Stack>
-
-            <Divider sx={{ backgroundColor: 'rgba(232, 25, 125, 0.2)', my: 2 }} />
-
-            <Stack spacing={1}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography sx={{ color: 'var(--foreground-secondary)' }}>Subtotal:</Typography>
-                <Typography sx={{ color: 'var(--foreground)' }}>${order.totalPrice.toFixed(2)}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography sx={{ color: 'var(--foreground-secondary)' }}>Tax (8%):</Typography>
-                <Typography sx={{ color: 'var(--foreground)' }}>${(order.totalPrice * 0.08).toFixed(2)}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 1, borderTop: '1px solid rgba(232, 25, 125, 0.2)' }}>
-                <Typography sx={{ color: 'var(--brand-pink)', fontWeight: 600 }}>Total:</Typography>
-                <Typography sx={{ color: 'var(--brand-pink)', fontWeight: 600, fontSize: '1.1rem' }}>
-                  ${(order.totalPrice * 1.08).toFixed(2)}
+      <Stack spacing={4}>
+        <Card sx={{ backgroundColor: 'success.50', borderColor: 'success.main' }} variant="outlined">
+          <CardContent>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+              <CheckCircleIcon color="success" sx={{ fontSize: 40 }} />
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                  {t('order_confirmation.order_placed')}
                 </Typography>
+                <Typography color="text.secondary">
+                  {t('order_confirmation.thank_you', { name: form.firstName, ref: order.ref })}
+                </Typography>
+                {form.payment === 'card' && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {t('order_confirmation.payment_status', { status: paymentStatusLabel })}
+                  </Typography>
+                )}
               </Box>
             </Stack>
-          </Paper>
-        </Box>
+          </CardContent>
+        </Card>
 
-        <Box sx={{ flex: 1 }}>
-          <Paper sx={{ backgroundColor: 'var(--card-background)', p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, color: 'var(--brand-pink)', fontFamily: 'Playfair Display' }}>
-              {order.form.fulfillment === 'pickup' ? 'Pickup Details' : 'Delivery Details'}
-            </Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
+          <Stack spacing={3} sx={{ flex: 1 }}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  {t('order_confirmation.your_order')}
+                </Typography>
+                <Stack spacing={2}>
+                  {orders.map((entry, i) => (
+                    <Stack key={entry.orderId} spacing={0.5}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Chip label={`Order ${i + 1}`} size="small" color="primary" />
+                      </Stack>
+                      {entry.lines.map((line) => (
+                        <Stack
+                          key={line.id}
+                          direction={{ xs: 'column', sm: 'row' }}
+                          justifyContent="space-between"
+                          alignItems={{ xs: 'flex-start', sm: 'center' }}
+                          sx={{ pl: 1 }}
+                        >
+                          <Typography variant="body2">
+                            {line.cartQuantity}× {line.name}
+                          </Typography>
+                          <Typography variant="body2">${(line.price * line.cartQuantity).toFixed(2)}</Typography>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  ))}
 
-            {order.form.fulfillment === 'pickup' ? (
-              <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                637 1st St
-                <br />
-                Silvis, IL
-              </Typography>
-            ) : (
-              <Typography variant="body2" sx={{ color: 'var(--foreground)', whiteSpace: 'pre-wrap' }}>
-                {order.form.deliveryAddress.address1}
-              </Typography>
-            )}
+                  <Divider />
 
-            <Divider sx={{ backgroundColor: 'rgba(232, 25, 125, 0.2)', my: 2 }} />
+                  <Stack spacing={0.5}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">{t('cart.subtotal')}</Typography>
+                      <Typography variant="body2">${totalPrice.toFixed(2)}</Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">{t('cart.tax')}</Typography>
+                      <Typography variant="body2">${tax.toFixed(2)}</Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                        {t('cart.total')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                        ${total.toFixed(2)}
+                      </Typography>
+                    </Stack>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Stack>
 
-            <Box sx={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', p: 2, borderRadius: 1 }}>
-              <Typography variant="body2" sx={{ color: 'var(--foreground-secondary)', mb: 0.5 }}>
-                Estimated Time
-              </Typography>
-              <Typography variant="h6" sx={{ color: '#22c55e', fontFamily: 'Playfair Display' }}>
-                {etaTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-              </Typography>
-            </Box>
-          </Paper>
-        </Box>
-      </Stack>
+          <Stack spacing={2} sx={{ width: { xs: '100%', sm: 260 }, flexShrink: 0 }}>
+            <Card variant="outlined">
+              <CardContent>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                  {isDelivery ? <DeliveryDiningIcon color="primary" fontSize="small" /> : <StorefrontIcon color="primary" fontSize="small" />}
+                  <Typography variant="subtitle2" color="text.secondary">
+                    {isDelivery ? t('order_confirmation.delivery_address') : t('order_confirmation.pickup')}
+                  </Typography>
+                </Stack>
+                {isDelivery ? (
+                  <Stack>
+                    <Typography variant="body2">{form.deliveryAddress.address1}</Typography>
+                    <Typography variant="body2">
+                      {form.deliveryAddress.city}
+                      {form.deliveryAddress.state ? `, ${form.deliveryAddress.state}` : ''}
+                      {form.deliveryAddress.postcode ? ` ${form.deliveryAddress.postcode}` : ''}
+                    </Typography>
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    {t(pickupMessageKey[order.status])}
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <Button component={Link} href="/orders" variant="outlined" sx={{ color: 'var(--brand-pink)', borderColor: 'var(--brand-pink)', flex: 1 }}>
-          View My Orders
-        </Button>
-        <Button
-          component={Link}
-          href="/menu"
-          variant="contained"
-          sx={{ background: 'linear-gradient(135deg, var(--brand-pink), #f5316d)', color: '#fff', flex: 1 }}
-        >
-          Continue Shopping
-        </Button>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  {t('order_detail.payment')}
+                </Typography>
+                <Typography variant="body2">
+                  {form.payment === 'cash' ? t('order_confirmation.cash_pickup') : t('order_confirmation.pay_card')}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Stack>
+        </Stack>
+
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <Button component={Link} href="/orders" variant="outlined" sx={{ flex: 1 }}>
+            {t('order_confirmation.view_orders')}
+          </Button>
+          <Button component={Link} href="/menu" variant="contained" sx={{ flex: 1 }}>
+            {t('cart.continue_shopping')}
+          </Button>
+        </Stack>
       </Stack>
     </Container>
   );

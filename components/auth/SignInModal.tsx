@@ -9,6 +9,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/shared/I18nProvider";
 
 type SignInModalProps = {
   trigger: React.ReactElement<{ onClick?: React.MouseEventHandler }>;
@@ -19,6 +20,7 @@ export default function SignInModal({
   trigger,
   callbackUrl = "/admin",
 }: SignInModalProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [requiresOAuth, setRequiresOAuth] = useState(true);
   const [email, setEmail] = useState("");
@@ -61,13 +63,13 @@ export default function SignInModal({
         <DialogContent>
           <Stack spacing={3} sx={{ py: 2, textAlign: "center", alignItems: "center" }}>
             <Typography variant="overline" color="secondary.main">
-              Admin Sign In
+              {t("admin.signin_title")}
             </Typography>
-            <Typography variant="h6">Sign in to access the admin area</Typography>
+            <Typography variant="h6">{t("admin.signin_subtitle")}</Typography>
             <Typography variant="body2" color="text.secondary">
               {requiresOAuth
-                ? "Only approved Google accounts listed in the admin allowlist can access staff routes."
-                : "Request a secure admin sign-in link using an allowlisted test-mode email address."}
+                ? t("admin.signin_oauth_copy")
+                : t("admin.signin_test_copy")}
             </Typography>
             {requiresOAuth ? (
               <Button
@@ -79,12 +81,12 @@ export default function SignInModal({
                   void signIn("google", { callbackUrl });
                 }}
               >
-                Sign in with Google
+                {t("admin.auth_google")}
               </Button>
             ) : (
               <Stack spacing={2} sx={{ width: "100%" }}>
                 <TextField
-                  label="Admin Email"
+                  label={t("admin.signin_email")}
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -115,7 +117,7 @@ export default function SignInModal({
                     setLoading(false);
 
                     if (!result?.ok) {
-                      setError("Test admin sign-in failed. Verify ADMIN_TEST_MODE=true and TEST_ADMIN_EMAILS includes this email.");
+                      setError(t("admin.signin_test_failed"));
                       return;
                     }
 
@@ -125,7 +127,7 @@ export default function SignInModal({
                     window.location.href = callbackUrl;
                   }}
                 >
-                  {loading ? "Please wait..." : "Sign in as Admin (Test Mode)"}
+                  {loading ? t("welcome.loading") : t("admin.signin_test_cta")}
                 </Button>
               </Stack>
             )}

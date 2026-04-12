@@ -10,11 +10,13 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { getOrderProgressMessage, isActiveOrderStatus } from "@/features/checkout/order-status";
+import { formatOrderEtaMinutes, isActiveOrderStatus } from "@/features/checkout/order-status";
 import { useOrdersApi } from "@/hooks/useOrdersApi";
+import { useI18n } from "@/components/shared/I18nProvider";
 
 export default function OrderProgressBanner() {
-  const { orders, loading, dismissNotification } = useOrdersApi();
+  const { orders, loading, dismissNotification } = useOrdersApi({ pollIntervalMs: 15000 });
+  const { t } = useI18n();
   const [optimisticDismissed, setOptimisticDismissed] = useState<string[]>([]);
 
   const activeOrder = useMemo(() => {
@@ -34,6 +36,17 @@ export default function OrderProgressBanner() {
     setOptimisticDismissed((prev) => (prev.includes(activeOrder.ref) ? prev : [...prev, activeOrder.ref]));
     void dismissNotification(activeOrder.ref);
   };
+
+  let progressMessage = t(`status.${activeOrder.status}_desc`);
+  if (activeOrder.status === "in_progress" && activeOrder.etaMinutes) {
+    progressMessage = t("orders.estimated", {
+      eta: formatOrderEtaMinutes(activeOrder.etaMinutes),
+    });
+  } else if (activeOrder.status === "cancelled" && activeOrder.cancellationNote?.trim()) {
+    progressMessage = t("order_detail.restaurant_note", {
+      note: activeOrder.cancellationNote.trim(),
+    });
+  }
 
   return (
     <Box
@@ -55,7 +68,7 @@ export default function OrderProgressBanner() {
             <InfoOutlinedIcon color="primary" fontSize="small" />
             <Box sx={{ minWidth: 0 }}>
               <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                Order {activeOrder.ref} update
+                {t("banner.order_update", { ref: activeOrder.ref })}
               </Typography>
               <Typography
                 variant="caption"
@@ -67,7 +80,7 @@ export default function OrderProgressBanner() {
                   textOverflow: "ellipsis",
                 }}
               >
-                {getOrderProgressMessage(activeOrder.status, activeOrder.etaMinutes, activeOrder.cancellationNote)}
+                {progressMessage}
               </Typography>
             </Box>
           </Stack>
@@ -79,11 +92,11 @@ export default function OrderProgressBanner() {
             sx={{ flexShrink: 0, alignSelf: { xs: "stretch", sm: "auto" } }}
           >
             <Button size="small" variant="outlined" LinkComponent={Link} href={`/orders/${activeOrder.ref}`}>
-              View Order
+              {t("banner.view_order")}
             </Button>
             <IconButton
               size="small"
-              aria-label="Dismiss order progress notification"
+              aria-label={t("banner.dismiss")}
               onClick={handleDismiss}
             >
               <CloseIcon fontSize="small" />

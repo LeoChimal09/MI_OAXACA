@@ -88,29 +88,6 @@ export async function sendSignInLinkEmail(input: {
   });
 }
 
-export async function sendCustomerOrderReceivedEmail(input: {
-  email: string | string[];
-  order: PlacedOrder;
-}) {
-  const orderUrl = `${getAppBaseUrl()}/orders/${encodeURIComponent(input.order.ref)}`;
-
-  await sendEmail({
-    to: input.email,
-    subject: `We received your order ${input.order.ref}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
-        <h2>We received your order</h2>
-        <p>Thanks for ordering with Mi Oaxaca. Your order reference is <strong>${escapeHtml(input.order.ref)}</strong>.</p>
-        <p>Status: <strong>${escapeHtml(getOrderProgressMessage(input.order.status, input.order.etaMinutes, input.order.cancellationNote))}</strong></p>
-        <p>Placed at: ${escapeHtml(formatOrderTimestamp(input.order.placedAt))}</p>
-        <ul>${renderOrderItems(input.order)}</ul>
-        <p>Total: <strong>$${input.order.totalPrice.toFixed(2)}</strong></p>
-        ${renderPrimaryLink(orderUrl, "Track your order")}
-      </div>
-    `,
-  });
-}
-
 export async function sendCustomerOrderStatusUpdateEmail(input: {
   email: string | string[];
   order: PlacedOrder;
@@ -153,6 +130,35 @@ export async function sendAdminNewOrderEmail(input: {
         <p>Reference: <strong>${escapeHtml(input.order.ref)}</strong></p>
         <p>Customer: ${escapeHtml(input.order.form.firstName)} ${escapeHtml(input.order.form.lastName)} (${escapeHtml(input.order.form.email)})</p>
         <p>Placed at: ${escapeHtml(formatOrderTimestamp(input.order.placedAt))}</p>
+        <ul>${renderOrderItems(input.order)}</ul>
+        <p>Total: <strong>$${input.order.totalPrice.toFixed(2)}</strong></p>
+        ${renderPrimaryLink(adminOrdersUrl, "Open admin orders")}
+      </div>
+    `,
+  });
+}
+
+export async function sendAdminOrderCancelledEmail(input: {
+  order: PlacedOrder;
+  cancellationNote?: string | null;
+}) {
+  const recipients = getAdminNotificationEmails();
+  if (recipients.length === 0) {
+    return;
+  }
+
+  const adminOrdersUrl = `${getAppBaseUrl()}/admin/orders`;
+
+  await sendEmail({
+    to: recipients,
+    subject: `Order cancelled: ${input.order.ref}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111;">
+        <h2>Order cancelled by customer</h2>
+        <p>Reference: <strong>${escapeHtml(input.order.ref)}</strong></p>
+        <p>Customer: ${escapeHtml(input.order.form.firstName)} ${escapeHtml(input.order.form.lastName)} (${escapeHtml(input.order.form.email)})</p>
+        <p>Placed at: ${escapeHtml(formatOrderTimestamp(input.order.placedAt))}</p>
+        ${input.cancellationNote ? `<p><strong>Customer note:</strong> ${escapeHtml(input.cancellationNote)}</p>` : ''}
         <ul>${renderOrderItems(input.order)}</ul>
         <p>Total: <strong>$${input.order.totalPrice.toFixed(2)}</strong></p>
         ${renderPrimaryLink(adminOrdersUrl, "Open admin orders")}

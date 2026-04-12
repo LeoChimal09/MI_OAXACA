@@ -9,39 +9,44 @@ import Container from "@mui/material/Container";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Link from "next/link";
-
-const modules = [
-  {
-    name: "Orders",
-    description: "Review live orders and move them through the status workflow.",
-    href: "/admin/orders",
-    cta: "Open Orders",
-    status: "Live",
-  },
-  {
-    name: "Billing",
-    description: "Planned next module for payment and settlement visibility.",
-    status: "Planned",
-  },
-  {
-    name: "Reports",
-    description: "Planned analytics module for daily and weekly operations insights.",
-    status: "Planned",
-  },
-];
+import { useI18n } from "@/components/shared/I18nProvider";
 
 export default function AdminDashboardPage() {
+  const { t } = useI18n();
+  const modules = [
+    {
+      name: t("admin.module.orders"),
+      description: t("admin.module.orders_desc"),
+      href: "/admin/orders",
+      cta: t("admin.module.orders_cta"),
+      status: t("admin.live"),
+      isLive: true,
+    },
+    {
+      name: t("admin.module.billing"),
+      description: t("admin.module.billing_desc"),
+      status: t("admin.planned"),
+      isLive: false,
+    },
+    {
+      name: t("admin.module.reports"),
+      description: t("admin.module.reports_desc"),
+      status: t("admin.planned"),
+      isLive: false,
+    },
+  ];
+
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
       <Stack spacing={1} sx={{ mb: 4 }}>
         <Typography variant="overline" color="secondary.main">
-          Admin Area
+          {t("admin.area")}
         </Typography>
         <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>
-          Operations Dashboard
+          {t("admin.dashboard")}
         </Typography>
         <Typography color="text.secondary">
-          Focused admin scope: Orders is live, while Billing and Reports are planned for a later phase.
+          {t("admin.dashboard_subtitle")}
         </Typography>
       </Stack>
 
@@ -61,7 +66,7 @@ export default function AdminDashboardPage() {
             <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
                 <Typography variant="h6">{module.name}</Typography>
-                <Typography variant="caption" color={module.status === "Live" ? "success.main" : "text.secondary"}>
+                <Typography variant="caption" color={module.isLive ? "success.main" : "text.secondary"}>
                   {module.status}
                 </Typography>
               </Stack>

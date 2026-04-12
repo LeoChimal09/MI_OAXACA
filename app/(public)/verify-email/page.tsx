@@ -11,11 +11,17 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/shared/I18nProvider";
 
 export default function VerifyEmailPage() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
-  const [message, setMessage] = useState("Verifying your link...");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    setMessage(t("verify.loading"));
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,7 +34,7 @@ export default function VerifyEmailPage() {
       if (!email || !token) {
         if (!cancelled) {
           setStatus("error");
-          setMessage("This verification link is invalid.");
+          setMessage(t("verify.invalid"));
         }
         return;
       }
@@ -46,7 +52,7 @@ export default function VerifyEmailPage() {
 
       if (result?.ok) {
         setStatus("success");
-        setMessage("You are signed in. Redirecting...");
+        setMessage(t("verify.success"));
         setTimeout(() => {
           window.location.href = "/";
         }, 1000);
@@ -54,7 +60,7 @@ export default function VerifyEmailPage() {
       }
 
       setStatus("error");
-      setMessage("This link is invalid or expired. Please request a new one.");
+      setMessage(t("verify.expired"));
     }
 
     void runVerification();
@@ -62,13 +68,13 @@ export default function VerifyEmailPage() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   return (
     <Box sx={{ backgroundColor: "background.default", minHeight: "70vh", py: { xs: 6, md: 10 } }}>
       <Container maxWidth="sm">
         <Stack spacing={2.5}>
-          <Typography variant="h4">Email verification</Typography>
+          <Typography variant="h4">{t("verify.title")}</Typography>
           {status === "loading" && (
             <Stack direction="row" spacing={1.5} alignItems="center">
               <CircularProgress size={20} />
@@ -78,7 +84,7 @@ export default function VerifyEmailPage() {
           {status === "success" && <Alert severity="success">{message}</Alert>}
           {status === "error" && <Alert severity="error">{message}</Alert>}
           <Button component={Link} href="/" variant="contained">
-            Back to home
+            {t("verify.back_home")}
           </Button>
         </Stack>
       </Container>

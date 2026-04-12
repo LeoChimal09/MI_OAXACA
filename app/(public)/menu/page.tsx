@@ -25,9 +25,11 @@ import MenuGridWithCart from "@/components/customer/MenuGridWithCart";
 import type { MenuItem } from "@/components/customer/MenuCard";
 import type { PendingLine } from "@/features/cart/CartContext";
 import { useCart } from "@/features/cart/CartContext";
-import { MENU_CATEGORIES, menuItems } from "@/features/menu/menu.data";
+import { localizeMenuItem, MENU_CATEGORIES, menuItems } from "@/features/menu/menu.data";
+import { useI18n } from "@/components/shared/I18nProvider";
 
 export default function MenuPage() {
+  const { t, categoryLabel, locale } = useI18n();
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -42,6 +44,11 @@ export default function MenuPage() {
     return menuItems.filter((item) => item.category === selectedCategory);
   }, [selectedCategory]);
 
+  const localizedFilteredItems = useMemo(
+    () => filteredItems.map((item) => localizeMenuItem(item, locale)),
+    [filteredItems, locale],
+  );
+
   const lastAddedItem = pendingLines.at(-1)?.item ?? null;
 
   const drinkSuggestions = useMemo(() => {
@@ -54,8 +61,9 @@ export default function MenuPage() {
           item.category === "Drinks" &&
           !pendingLines.some((l) => l.item.id === item.id),
       )
+        .map((item) => localizeMenuItem(item, locale))
       .slice(0, 3);
-  }, [pendingLines, lastAddedItem]);
+      }, [pendingLines, lastAddedItem, locale]);
 
   const otherSuggestions = useMemo(() => {
     if (!lastAddedItem || lastAddedItem.category === "Appetizers") return [];
@@ -66,10 +74,12 @@ export default function MenuPage() {
           item.category === "Appetizers" &&
           !pendingLines.some((l) => l.item.id === item.id),
       )
+        .map((item) => localizeMenuItem(item, locale))
       .slice(0, 2);
-  }, [pendingLines, lastAddedItem]);
+      }, [pendingLines, lastAddedItem, locale]);
 
   const pendingSubtotal = pendingLines.reduce((s, l) => s + l.item.price * l.quantity, 0);
+  const pendingItemCount = pendingLines.reduce((sum, line) => sum + line.quantity, 0);
 
   const handleItemAdded = (item: MenuItem) => {
     setPendingLines((prev) => {
@@ -113,27 +123,47 @@ export default function MenuPage() {
   };
 
   return (
-    <Box>
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
+    <Box sx={{ minHeight: "calc(100vh - var(--site-nav-height, 64px))", pb: pendingLines.length > 0 ? { xs: 11, md: 0 } : 0 }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 } }}>
         {/* Header */}
-        <Stack spacing={1} sx={{ mb: 4 }}>
-          <Typography variant="overline" color="primary.main" sx={{ letterSpacing: "0.15em" }}>
-            Mi Oaxaca — 637 1st St, Silvis, IL
-          </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 900 }}>
-            Our Menu
-          </Typography>
-          <Typography color="text.secondary" sx={{ maxWidth: 520 }}>
-            Authentic Oaxacan flavors made fresh to order. Ask your server about daily specials.
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            (W) Wheat · **Nuts — Food Allergy Warning
-          </Typography>
+        <Stack
+          spacing={1.25}
+          className="altar-surface"
+          sx={{
+            mb: { xs: 2.5, md: 4 },
+            p: { xs: 1.75, md: 2.5 },
+            borderRadius: 4,
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <Stack spacing={1} sx={{ maxWidth: 760, pt: 0.75 }}>
+            <Typography variant="overline" color="primary.main" sx={{ letterSpacing: "0.2em" }}>
+              Mi Oaxaca — 637 1st St, Silvis, IL
+            </Typography>
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 900, fontFamily: "var(--font-display)", fontSize: { xs: "2.2rem", md: "3rem" }, lineHeight: 0.95 }}
+            >
+              {t("menu.title")}
+            </Typography>
+            <Typography color="text.secondary" sx={{ maxWidth: 560, fontSize: { xs: "0.96rem", md: "1rem" } }}>
+              {t("menu.subtitle")}
+            </Typography>
+          </Stack>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ pt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {t("menu.allergy")}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: { xs: 'left', sm: 'right' } }}>
+              {categoryLabel(selectedCategory)} · {t("menu.item_count", { count: filteredItems.length, suffix: filteredItems.length !== 1 ? 's' : '' })}
+            </Typography>
+          </Stack>
         </Stack>
 
-        <Stack direction={{ xs: "column", md: "row" }} spacing={4}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={{ xs: 2.25, md: 3.5 }} alignItems="flex-start">
           {/* Category sidebar — horizontal scroll on mobile, vertical on desktop */}
-          <Box sx={{ width: { xs: "100%", md: "220px" }, flexShrink: 0 }}>
+          <Box sx={{ width: { xs: "100%", md: 220 }, flexShrink: 0, position: { md: "sticky" }, top: { md: "calc(var(--site-nav-height, 64px) + 12px)" } }}>
             <CategorySidebar
               categories={categories}
               selectedCategory={selectedCategory}
@@ -149,17 +179,57 @@ export default function MenuPage() {
                 justifyContent="space-between"
                 alignItems={{ xs: "flex-start", sm: "center" }}
                 spacing={1}
+                sx={{ px: { xs: 0.25, sm: 0.5 }, pb: 0.25 }}
               >
-                <Typography variant="h5">{selectedCategory}</Typography>
+                <Typography variant="h5" sx={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: { xs: '1.6rem', sm: '1.8rem' } }}>
+                  {categoryLabel(selectedCategory)}
+                </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {filteredItems.length} item{filteredItems.length !== 1 ? "s" : ""}
+                  {t("menu.item_count", {
+                    count: filteredItems.length,
+                    suffix: filteredItems.length !== 1 ? "s" : "",
+                  })}
                 </Typography>
               </Stack>
-              <MenuGridWithCart items={filteredItems} onItemAdded={handleItemAdded} />
+              <MenuGridWithCart items={localizedFilteredItems} onItemAdded={handleItemAdded} />
             </Stack>
           </Box>
         </Stack>
       </Container>
+
+      {pendingLines.length > 0 && !modalOpen && (
+        <Box
+          sx={{
+            position: 'fixed',
+            left: { xs: 12, sm: 20 },
+            right: { xs: 12, sm: 20 },
+            bottom: { xs: 12, sm: 18 },
+            zIndex: 40,
+            display: { xs: 'block', md: 'none' },
+          }}
+        >
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={() => setModalOpen(true)}
+            sx={{
+              justifyContent: 'space-between',
+              px: 2,
+              py: 1.25,
+              borderRadius: 999,
+              boxShadow: 'var(--shadow-deep)',
+            }}
+          >
+            <Stack alignItems="flex-start" spacing={0.15}>
+              <Typography sx={{ fontWeight: 800, lineHeight: 1.1 }}>{t('menu.review_order')}</Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.78)' }}>
+                {t('menu.selected_items', { count: pendingItemCount, suffix: pendingItemCount === 1 ? '' : 's' })}
+              </Typography>
+            </Stack>
+            <Typography sx={{ fontWeight: 900 }}>${pendingSubtotal.toFixed(2)}</Typography>
+          </Button>
+        </Box>
+      )}
 
       {/* Add-to-order dialog */}
       <Dialog
@@ -171,13 +241,15 @@ export default function MenuPage() {
       >
         <DialogTitle sx={{ pb: 1, display: "flex", alignItems: "center", gap: 1 }}>
           <ShoppingCartIcon color="primary" />
-          {lastAddedItem ? `${lastAddedItem.name} added` : "Building your order"}
+          {lastAddedItem
+            ? t("menu.added", { name: lastAddedItem.name })
+            : t("menu.building_order")}
         </DialogTitle>
 
         <DialogContent>
           <Stack spacing={2.5}>
             <Typography variant="body2" color="text.secondary">
-              Add a drink or starter, then confirm to place this order.
+              {t("menu.modal_help")}
             </Typography>
 
             {/* Current pending lines */}
@@ -185,7 +257,7 @@ export default function MenuPage() {
               <Card variant="outlined">
                 <CardContent sx={{ py: 1.5 }}>
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                    This order
+                    {t("menu.this_order")}
                   </Typography>
                   <Stack spacing={0.75}>
                     {pendingLines.map((line) => (
@@ -220,14 +292,14 @@ export default function MenuPage() {
                           sx={{ minWidth: 0, px: 0.5, fontSize: "0.7rem" }}
                           onClick={() => handleRemovePending(line.item.id)}
                         >
-                          Remove
+                          {t("menu.remove")}
                         </Button>
                       </Stack>
                     ))}
                     <Divider sx={{ my: 0.5 }} />
                     <Stack direction="row" justifyContent="flex-end">
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        Order total: ${pendingSubtotal.toFixed(2)}
+                        {t("menu.order_total", { total: pendingSubtotal.toFixed(2) })}
                       </Typography>
                     </Stack>
                   </Stack>
@@ -240,7 +312,7 @@ export default function MenuPage() {
               <Card variant="outlined" sx={{ borderColor: "primary.dark" }}>
                 <CardContent sx={{ py: 1.5 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                    Add a drink to your order
+                    {t("menu.add_drink")}
                   </Typography>
                   <Stack spacing={0.75}>
                     {drinkSuggestions.map((drink) => (
@@ -258,7 +330,7 @@ export default function MenuPage() {
                           variant="contained"
                           onClick={() => handleAddSuggested(drink)}
                         >
-                          Add
+                          {t("menu.add_generic")}
                         </Button>
                       </Stack>
                     ))}
@@ -271,7 +343,7 @@ export default function MenuPage() {
             {otherSuggestions.length > 0 && (
               <Stack spacing={0.75}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  You might also like
+                  {t("menu.you_might_like")}
                 </Typography>
                 {otherSuggestions.map((item) => (
                   <Card key={item.id} variant="outlined">
@@ -295,7 +367,7 @@ export default function MenuPage() {
                           variant="outlined"
                           onClick={() => handleAddSuggested(item)}
                         >
-                          Add
+                          {t("menu.add_generic")}
                         </Button>
                       </Stack>
                     </CardContent>
@@ -320,7 +392,7 @@ export default function MenuPage() {
             disabled={pendingLines.length === 0}
             sx={{ width: { xs: "100%", sm: "auto" } }}
           >
-            Place &amp; Continue Ordering
+            {t("menu.place_continue")}
           </Button>
           <Button
             variant="contained"
@@ -330,7 +402,7 @@ export default function MenuPage() {
             disabled={pendingLines.length === 0}
             sx={{ width: { xs: "100%", sm: "auto" } }}
           >
-            Place Order &amp; View Cart
+            {t("menu.place_view_cart")}
           </Button>
         </DialogActions>
       </Dialog>
