@@ -214,9 +214,7 @@ export async function PATCH(request: NextRequest, context: OrderRouteContext) {
   const shouldEmailCustomer =
     recipientEmails.length > 0 &&
     existingOrder.status !== order.status &&
-    (order.status === "in_progress" ||
-      order.status === "ready" ||
-      (order.status === "cancelled" && order.cancelledBy === "admin"));
+    (order.status === "in_progress" || order.status === "ready");
 
   if (shouldEmailCustomer) {
     void sendCustomerOrderStatusUpdateEmail({ email: recipientEmails, order }).catch(() => undefined);

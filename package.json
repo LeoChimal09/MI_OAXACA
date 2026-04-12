@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbo",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "dev:turbo": "next dev --turbo",
+    "build": "next build --webpack",
+    "build:turbo": "next build",
     "build:info": "echo \"No build info script configured\"",
     "start": "next start",
     "preview": "next build && next start",

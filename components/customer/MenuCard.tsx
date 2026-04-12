@@ -14,6 +14,8 @@ export type MenuItem = {
   price: number;
   category: string;
   available: boolean;
+  imageUrl?: string;
+  imageAlt?: string;
 };
 
 type MenuCardProps = {

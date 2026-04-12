@@ -9,7 +9,7 @@ import type { CreateOrderInput } from "@/features/checkout/checkout.types";
 import { calculateOrderSubtotal } from "@/features/checkout/order-pricing";
 import { getAuthSession, isAdminSession } from "@/lib/auth";
 import { isRateLimited } from "@/lib/rate-limiter";
-import { sendAdminNewOrderEmail, sendCustomerOrderReceivedEmail } from "@/lib/resend-mailer";
+import { sendAdminNewOrderEmail } from "@/lib/resend-mailer";
 
 const MAX_GUEST_REFS = 50;
 const ORDER_REF_PATTERN = /^(MIO|TBL)-[A-Z0-9-]{6,64}$/;
@@ -98,7 +98,6 @@ export async function POST(request: NextRequest) {
 
     if (order.paymentStatus === "paid") {
       void sendAdminNewOrderEmail({ order }).catch(() => undefined);
-      void sendCustomerOrderReceivedEmail({ email: order.form.email.trim().toLowerCase(), order }).catch(() => undefined);
     }
 
     return NextResponse.json(order, { status: 201 });

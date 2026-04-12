@@ -22,39 +22,28 @@ import { formatOrderTimestamp } from '@/features/checkout/order-format';
 import type { OrderStatus } from '@/features/checkout/checkout.types';
 import { formatOrderEtaMinutes } from '@/features/checkout/order-status';
 import { useOrdersApi } from '@/hooks/useOrdersApi';
+import { useI18n } from '@/components/shared/I18nProvider';
 
 const STATUS_CONFIG: Record<
   OrderStatus,
   {
-    label: string;
     color: 'default' | 'warning' | 'info' | 'success' | 'error';
-    description: string;
   }
 > = {
   pending: {
-    label: 'Pending',
     color: 'default',
-    description: "We've received your order and are getting it ready.",
   },
   in_progress: {
-    label: 'In Progress',
     color: 'warning',
-    description: 'Your order is being prepared in the kitchen.',
   },
   ready: {
-    label: 'Ready',
     color: 'info',
-    description: 'Your order is ready. Please come collect it or await delivery.',
   },
   completed: {
-    label: 'Completed',
     color: 'success',
-    description: 'Your order has been delivered or collected. Enjoy!',
   },
   cancelled: {
-    label: 'Cancelled',
     color: 'error',
-    description: 'This order has been cancelled.',
   },
 };
 
@@ -71,13 +60,17 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
   const { ref } = use(params);
   const router = useRouter();
   const { cart, remakeOrder } = useCart();
-  const { order, loading, error, updateOrderStatus } = useOrdersApi({ ref });
+  const { t } = useI18n();
+  const { order, loading, error, updateOrderStatus } = useOrdersApi({
+    ref,
+    pollIntervalMs: 5000,
+  });
 
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: '',
     confirmColor: 'primary',
     onConfirm: () => {},
   });
@@ -89,24 +82,24 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
 
   if (loading) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Typography sx={{ color: 'var(--foreground-secondary)' }}>Loading order...</Typography>
+      <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Typography sx={{ color: 'var(--foreground-secondary)' }}>{t('order_detail.loading')}</Typography>
       </Container>
     );
   }
 
   if (!order) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
+      <Container maxWidth="lg" sx={{ py: 8 }}>
         <Stack spacing={3}>
           <Button component={Link} href="/orders" sx={{ color: 'var(--brand-pink)', width: 'fit-content' }}>
-            Back to Orders
+            {t('order_detail.back_orders')}
           </Button>
           <Typography variant="h4" sx={{ color: 'var(--foreground)' }}>
-            Order not found
+            {t('order_detail.not_found')}
           </Typography>
           <Typography sx={{ color: 'var(--foreground-secondary)' }}>
-            {error ?? 'This order may no longer be available.'}
+            {error ?? t('order_detail.not_found_copy')}
           </Typography>
         </Stack>
       </Container>
@@ -116,15 +109,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
   const fullName = `${order.form.firstName} ${order.form.lastName}`.trim();
   const isDelivery = order.form.fulfillment === 'delivery';
   const status = STATUS_CONFIG[order.status];
+  const pickupMessageKey: Record<OrderStatus, string> = {
+    pending: 'order_detail.pickup_pending',
+    in_progress: 'order_detail.pickup_in_progress',
+    ready: 'order_detail.pickup_ready',
+    completed: 'order_detail.pickup_completed',
+    cancelled: 'order_detail.pickup_cancelled',
+  };
 
   const handleRemakeOrder = () => {
     if (cart.totalOrders > 0) {
       setConfirmState({
         open: true,
-        title: 'Replace current cart?',
-        description:
-          'Your current cart will be replaced with this previous order. You can review and edit before placing it.',
-        confirmLabel: 'Replace Cart',
+        title: t('order_detail.replace_title'),
+        description: t('order_detail.replace_desc'),
+        confirmLabel: t('orders.replace_cart'),
         confirmColor: 'warning',
         onConfirm: () => {
           remakeOrder(order.orders);
@@ -142,9 +141,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
   const handleCancelOrder = () => {
     setConfirmState({
       open: true,
-      title: 'Cancel this order?',
-      description: 'This order is still pending, so it can be cancelled now and kept in your history.',
-      confirmLabel: 'Cancel Order',
+        title: t('orders.cancel_title'),
+        description: t('orders.cancel_desc'),
+        confirmLabel: t('orders.cancel'),
       confirmColor: 'error',
       onConfirm: async () => {
         await updateOrderStatus(order.ref, 'cancelled');
@@ -154,55 +153,86 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Stack spacing={3.5}>
-        <Stack spacing={1}>
-          <Button component={Link} href="/orders" size="small" sx={{ color: 'var(--brand-pink)', width: 'fit-content', pl: 0 }}>
-            My Orders
-          </Button>
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
-            <Typography variant="h5" sx={{ color: 'var(--brand-pink)', fontFamily: 'monospace', fontWeight: 600 }}>
-              {order.ref}
-            </Typography>
-            <Chip label={status.label} size="small" variant="outlined" />
-          </Stack>
-          <Typography variant="body2" sx={{ color: 'var(--foreground-secondary)' }}>
-            Placed {formatOrderTimestamp(order.placedAt)}
-          </Typography>
-        </Stack>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - var(--site-nav-height, 64px))',
+        background:
+          'radial-gradient(1000px 420px at 10% 0%, rgba(232,25,125,0.08), rgba(232,25,125,0) 60%), radial-gradient(820px 360px at 100% 0%, rgba(6,182,212,0.08), rgba(6,182,212,0) 58%)',
+        py: { xs: 3, md: 4 },
+      }}
+    >
+      <Container maxWidth="lg">
+        <Stack spacing={3}>
+          <Box
+            sx={{
+              p: { xs: 2, md: 2.5 },
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              background: 'rgba(12,14,26,0.56)',
+              backdropFilter: 'blur(8px)',
+              boxShadow: 'var(--shadow-soft)',
+            }}
+          >
+            <Stack spacing={1.25}>
+              <Button component={Link} href="/orders" size="small" sx={{ color: 'var(--brand-pink)', width: 'fit-content', pl: 0 }}>
+                {t('order_detail.my_orders')}
+              </Button>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between">
+                <Stack spacing={0.5}>
+                  <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
+                    <Typography variant="h4" sx={{ color: 'var(--foreground)', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: { xs: '2rem', sm: '2.5rem' }, overflowWrap: 'anywhere' }}>
+                      {order.ref}
+                    </Typography>
+                    <Chip label={t(`status.${order.status}`)} size="small" variant="outlined" />
+                  </Stack>
+                  <Typography variant="body2" sx={{ color: 'var(--foreground-secondary)' }}>
+                    {t('order_detail.placed', { date: formatOrderTimestamp(order.placedAt) })}
+                  </Typography>
+                </Stack>
+              </Stack>
+            </Stack>
+          </Box>
 
-        <Card variant="outlined" sx={{ borderColor: `${status.color}.main` }}>
+        <Card
+          variant="outlined"
+          sx={{
+            borderColor: `${status.color}.main`,
+            background: 'rgba(19,22,41,0.78)',
+            boxShadow: 'var(--shadow-soft)',
+          }}
+        >
           <CardContent>
             <Stack spacing={0.5}>
-              <Typography variant="body1">{status.description}</Typography>
+              <Typography variant="body1">{t(`status.${order.status}_desc`)}</Typography>
               {order.status === 'in_progress' && order.etaMinutes && (
                 <Typography variant="body2" color="warning.main" sx={{ fontWeight: 700 }}>
-                  Estimated time: {formatOrderEtaMinutes(order.etaMinutes)}
+                  {t('orders.estimated', { eta: formatOrderEtaMinutes(order.etaMinutes) })}
                 </Typography>
               )}
               {order.status === 'cancelled' && order.cancellationNote?.trim() && (
                 <Typography variant="body2" color="error.main" sx={{ fontWeight: 700 }}>
-                  Restaurant note: {order.cancellationNote}
+                  {t('order_detail.restaurant_note', { note: order.cancellationNote })}
                 </Typography>
               )}
             </Stack>
           </CardContent>
         </Card>
 
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="flex-start">
           <Stack spacing={2.5} sx={{ flex: 1 }}>
-            <Card variant="outlined" sx={{ backgroundColor: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)' }}>
+            <Card variant="outlined" sx={{ background: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)', boxShadow: 'var(--shadow-soft)' }}>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, color: 'var(--brand-pink)', fontFamily: 'Playfair Display' }}>
-                  Items Ordered
+                  {t('order_detail.items')}
                 </Typography>
                 <Stack spacing={1.5}>
                   {order.orders.map((entry, index) => (
                     <Stack key={entry.orderId} spacing={0.7}>
                       <Chip label={`Order ${index + 1}`} size="small" sx={{ width: 'fit-content', color: '#fff', backgroundColor: 'var(--brand-pink)' }} />
                       {entry.lines.map((line) => (
-                        <Box key={`${entry.orderId}-${line.id}`} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 1 }}>
-                          <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
+                        <Box key={`${entry.orderId}-${line.id}`} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 0.25, sm: 1 }, pl: 1 }}>
+                          <Typography variant="body2" sx={{ color: 'var(--foreground)', overflowWrap: 'anywhere' }}>
                             {line.cartQuantity}x {line.name}
                           </Typography>
                           <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
@@ -218,7 +248,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
                   <Stack spacing={0.6}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2" sx={{ color: 'var(--foreground-secondary)' }}>
-                        Subtotal
+                        {t('cart.subtotal')}
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
                         ${order.totalPrice.toFixed(2)}
@@ -226,14 +256,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                       <Typography variant="body2" sx={{ color: 'var(--foreground-secondary)' }}>
-                        Tax (8%)
+                        {t('cart.tax')}
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
                         ${tax.toFixed(2)}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.6 }}>
-                      <Typography sx={{ color: 'var(--brand-pink)', fontWeight: 700 }}>Total</Typography>
+                      <Typography sx={{ color: 'var(--brand-pink)', fontWeight: 700 }}>{t('cart.total')}</Typography>
                       <Typography sx={{ color: 'var(--brand-pink)', fontWeight: 700 }}>${total.toFixed(2)}</Typography>
                     </Box>
                   </Stack>
@@ -242,13 +272,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
             </Card>
           </Stack>
 
-          <Stack spacing={2} sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
-            <Card variant="outlined" sx={{ backgroundColor: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)' }}>
+          <Stack spacing={2} sx={{ width: { xs: '100%', md: 300 }, flexShrink: 0 }}>
+            <Card variant="outlined" sx={{ background: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)', boxShadow: 'var(--shadow-soft)' }}>
               <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.25 }}>
                   {isDelivery ? <DeliveryDiningIcon color="primary" fontSize="small" /> : <StorefrontIcon color="primary" fontSize="small" />}
                   <Typography variant="subtitle2" sx={{ color: 'var(--foreground-secondary)' }}>
-                    {isDelivery ? 'Delivery' : 'Pickup'}
+                    {isDelivery ? t('checkout.delivery') : t('checkout.pickup')}
                   </Typography>
                 </Stack>
                 {isDelivery ? (
@@ -264,19 +294,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
                   </Stack>
                 ) : (
                   <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                    Ready for in-store pickup
+                    {t(pickupMessageKey[order.status])}
                   </Typography>
                 )}
               </CardContent>
             </Card>
 
-            <Card variant="outlined" sx={{ backgroundColor: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)' }}>
+            <Card variant="outlined" sx={{ background: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)', boxShadow: 'var(--shadow-soft)' }}>
               <CardContent>
                 <Typography variant="subtitle2" sx={{ color: 'var(--foreground-secondary)', mb: 0.75 }}>
-                  Contact
+                  {t('order_detail.contact')}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                  {fullName || 'Guest'}
+                  {fullName || t('guest.guest')}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'var(--foreground-secondary)' }}>
                   {order.form.email}
@@ -287,22 +317,22 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
               </CardContent>
             </Card>
 
-            <Card variant="outlined" sx={{ backgroundColor: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)' }}>
+            <Card variant="outlined" sx={{ background: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)', boxShadow: 'var(--shadow-soft)' }}>
               <CardContent>
                 <Typography variant="subtitle2" sx={{ color: 'var(--foreground-secondary)', mb: 0.75 }}>
-                  Payment
+                  {t('order_detail.payment')}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                  {order.form.payment === 'card' ? 'Card' : 'Cash'}
+                  {order.form.payment === 'card' ? t('checkout.card') : t('checkout.cash')}
                 </Typography>
               </CardContent>
             </Card>
 
             {order.form.comment.trim() && (
-              <Card variant="outlined" sx={{ backgroundColor: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)' }}>
+              <Card variant="outlined" sx={{ background: 'var(--card-background)', borderColor: 'rgba(232, 25, 125, 0.18)', boxShadow: 'var(--shadow-soft)' }}>
                 <CardContent>
                   <Typography variant="subtitle2" sx={{ color: 'var(--foreground-secondary)', mb: 0.75 }}>
-                    Special Instructions
+                    {t('order_detail.instructions')}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
                     {order.form.comment}
@@ -313,19 +343,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
           </Stack>
         </Stack>
 
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <Button variant="contained" onClick={handleRemakeOrder}>
-            Remake Order
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+          <Button variant="contained" onClick={handleRemakeOrder} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+            {t('order_detail.remake')}
           </Button>
-          <Button variant="outlined" component={Link} href="/menu">
-            Browse Menu
+          <Button variant="outlined" component={Link} href="/menu" sx={{ width: { xs: '100%', sm: 'auto' } }}>
+            {t('order_detail.browse')}
           </Button>
-          <Button variant="outlined" component={Link} href="/orders">
-            All Orders
+          <Button variant="outlined" component={Link} href="/orders" sx={{ width: { xs: '100%', sm: 'auto' } }}>
+            {t('order_detail.all')}
           </Button>
           {order.status === 'pending' && (
-            <Button variant="outlined" color="error" onClick={handleCancelOrder}>
-              Cancel Order
+            <Button variant="outlined" color="error" onClick={handleCancelOrder} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              {t('orders.cancel')}
             </Button>
           )}
         </Stack>
@@ -340,6 +370,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ ref: str
           onConfirm={confirmState.onConfirm}
         />
       </Stack>
-    </Container>
+      </Container>
+    </Box>
   );
 }

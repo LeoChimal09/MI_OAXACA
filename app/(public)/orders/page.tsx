@@ -19,15 +19,16 @@ import { formatOrderTimestamp } from "@/features/checkout/order-format";
 import type { OrderStatus } from "@/features/checkout/checkout.types";
 import { canRemoveOrderFromHistory, formatOrderEtaMinutes } from "@/features/checkout/order-status";
 import { useOrdersApi } from "@/hooks/useOrdersApi";
+import { useI18n } from "@/components/shared/I18nProvider";
 
 const HIDDEN_ORDER_HISTORY_KEY = "mi_oaxaca_hidden_order_history";
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; color: "default" | "warning" | "info" | "success" | "error" }> = {
-  pending:    { label: "Pending",     color: "default"  },
-  in_progress:{ label: "In Progress", color: "warning"  },
-  ready:      { label: "Ready",       color: "info"     },
-  completed:  { label: "Completed",   color: "success"  },
-  cancelled:  { label: "Cancelled",   color: "error"    },
+const STATUS_CONFIG: Record<OrderStatus, { color: "default" | "warning" | "info" | "success" | "error" }> = {
+  pending:    { color: "default"  },
+  in_progress:{ color: "warning"  },
+  ready:      { color: "info"     },
+  completed:  { color: "success"  },
+  cancelled:  { color: "error"    },
 };
 
 function loadHiddenOrderRefs() {
@@ -54,6 +55,7 @@ function loadHiddenOrderRefs() {
 }
 
 export default function OrdersPage() {
+  const { t } = useI18n();
   const { cart, remakeOrder } = useCart();
   const { orders, loading, error, updateOrderStatus } = useOrdersApi();
   const router = useRouter();
@@ -71,13 +73,14 @@ export default function OrdersPage() {
     open: false,
     title: "",
     description: "",
-    confirmLabel: "Confirm",
+    confirmLabel: "",
     confirmColor: "primary",
     onConfirm: () => {},
   });
 
   const visibleOrders = orders.filter((order) => !hiddenOrderRefs.includes(order.ref));
   const showOverflowMask = visibleOrders.length > 3;
+  const pluralSuffix = (count: number) => (count === 1 ? "" : "s");
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -104,9 +107,9 @@ export default function OrdersPage() {
     if (cart.totalOrders > 0) {
       setConfirmState({
         open: true,
-        title: "Replace current cart?",
-        description: "Your current cart will be replaced with this previous order. You can still review and edit it at checkout.",
-        confirmLabel: "Replace Cart",
+        title: t("orders.replace_cart_title"),
+        description: t("orders.replace_cart_desc"),
+        confirmLabel: t("orders.replace_cart"),
         confirmColor: "warning",
         onConfirm: () => {
           remakeOrder(orderOrders);
@@ -124,7 +127,7 @@ export default function OrdersPage() {
   if (loading) {
     return (
       <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 }, textAlign: "center" }}>
-        <Typography color="text.secondary">Loading orders...</Typography>
+        <Typography color="text.secondary">{t("orders.loading")}</Typography>
       </Container>
     );
   }
@@ -133,10 +136,10 @@ export default function OrdersPage() {
     return (
       <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 }, textAlign: "center" }}>
         <Stack spacing={3}>
-          <Typography variant="h4">Unable to load orders</Typography>
+          <Typography variant="h4">{t("orders.unable")}</Typography>
           <Typography color="text.secondary">{error}</Typography>
           <Button variant="contained" LinkComponent={Link} href="/menu" sx={{ mx: "auto" }}>
-            Back to Menu
+            {t("orders.back_menu")}
           </Button>
         </Stack>
       </Container>
@@ -147,14 +150,14 @@ export default function OrdersPage() {
     return (
       <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 }, textAlign: "center" }}>
         <Stack spacing={3}>
-          <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>My Orders</Typography>
+          <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>{t("orders.title")}</Typography>
           <Typography color="text.secondary">
             {orders.length === 0
-              ? "You haven't placed any orders yet."
-              : "No orders are currently visible in your browser history."}
+              ? t("orders.none")
+              : t("orders.none_visible")}
           </Typography>
           <Button variant="contained" LinkComponent={Link} href="/menu" sx={{ mx: "auto" }}>
-            Start an Order
+            {t("orders.start")}
           </Button>
         </Stack>
       </Container>
@@ -168,9 +171,12 @@ export default function OrdersPage() {
   const handleClearHistory = () => {
     setConfirmState({
       open: true,
-      title: "Clear order history?",
-      description: `This will remove ${removableOrders.length} completed or cancelled order${removableOrders.length !== 1 ? "s" : ""} from your browser history. This action only affects your local history view and does not delete actual orders.`,
-      confirmLabel: "Clear History",
+      title: t("orders.clear_history_title"),
+      description: t("orders.clear_history_desc", {
+        count: removableOrders.length,
+        suffix: pluralSuffix(removableOrders.length),
+      }),
+      confirmLabel: t("orders.clear_history"),
       confirmColor: "error",
       onConfirm: () => {
         setHiddenOrderRefs((prev) => {
@@ -187,10 +193,10 @@ export default function OrdersPage() {
     <Container maxWidth="md" sx={{ py: { xs: 4, md: 8 } }}>
       <Stack spacing={4}>
           <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={2}>
-            <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>My Orders</Typography>
+            <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>{t("orders.title")}</Typography>
             {hasRemovableOrders && (
               <Button variant="outlined" color="error" size="small" onClick={handleClearHistory}>
-                Clear History
+                {t("orders.clear_history")}
               </Button>
             )}
           </Stack>
@@ -225,15 +231,15 @@ export default function OrdersPage() {
                   >
                     {canRemove && (
                       <IconButton
-                        aria-label={`Remove ${order.ref} from history`}
+                        aria-label={t("orders.remove_from_history", { ref: order.ref })}
                         size="small"
                         sx={{ position: "absolute", top: 10, right: 10, zIndex: 1 }}
                         onClick={() =>
                           setConfirmState({
                             open: true,
-                            title: "Remove order from history?",
-                            description: "This only removes the order from your browser history list. It will not affect any submitted order.",
-                            confirmLabel: "Remove",
+                            title: t("orders.remove_history_title"),
+                            description: t("orders.remove_history_desc"),
+                            confirmLabel: t("cart.remove"),
                             confirmColor: "error",
                             onConfirm: () => {
                               setHiddenOrderRefs((prev) => {
@@ -268,19 +274,19 @@ export default function OrdersPage() {
                                 {order.ref}
                               </Typography>
                               <Chip
-                                label={status.label}
+                                label={t(`status.${order.status}`)}
                                 color={status.color}
                                 size="small"
                               />
                             </Stack>
                             <Typography variant="body2" color="text.secondary">
                               {formatOrderTimestamp(order.placedAt)} &middot;{" "}
-                              {itemCount} item{itemCount !== 1 ? "s" : ""} &middot;{" "}
-                              {order.form.fulfillment === "delivery" ? "Delivery" : "Pickup"}
+                              {t("cart.item_count", { count: itemCount, suffix: pluralSuffix(itemCount) })} &middot;{" "}
+                              {order.form.fulfillment === "delivery" ? t("checkout.delivery") : t("checkout.pickup")}
                             </Typography>
                             {order.status === "in_progress" && order.etaMinutes && (
                               <Typography variant="caption" color="warning.main" sx={{ fontWeight: 700 }}>
-                                Estimated time: {formatOrderEtaMinutes(order.etaMinutes)}
+                                {t("orders.estimated", { eta: formatOrderEtaMinutes(order.etaMinutes) })}
                               </Typography>
                             )}
                           </Stack>
@@ -298,14 +304,14 @@ export default function OrdersPage() {
                             LinkComponent={Link}
                             href={`/orders/${order.ref}`}
                           >
-                            View Details
+                            {t("orders.view_details")}
                           </Button>
                           <Button
                             size="small"
                             variant="contained"
                             onClick={() => handleRemakeOrder(order.orders)}
                           >
-                            Remake Order
+                            {t("orders.remake")}
                           </Button>
                           {order.status === "pending" && (
                             <Button
@@ -315,9 +321,9 @@ export default function OrdersPage() {
                               onClick={() =>
                                 setConfirmState({
                                   open: true,
-                                  title: "Cancel this order?",
-                                  description: "This order is still pending, so it can be cancelled now. You will still keep it in your order history.",
-                                  confirmLabel: "Cancel Order",
+                                  title: t("orders.cancel_title"),
+                                  description: t("orders.cancel_desc"),
+                                  confirmLabel: t("orders.cancel"),
                                   confirmColor: "error",
                                   onConfirm: async () => {
                                     await updateOrderStatus(order.ref, "cancelled");
@@ -326,7 +332,7 @@ export default function OrdersPage() {
                                 })
                               }
                             >
-                              Cancel Order
+                              {t("orders.cancel")}
                             </Button>
                           )}
                         </Stack>
@@ -359,7 +365,7 @@ export default function OrdersPage() {
                 color="text.secondary"
                 sx={{ display: "block", mt: 1, textAlign: "right" }}
               >
-                Scroll to view older orders
+                {t("orders.scroll_older")}
               </Typography>
             )}
           </Box>

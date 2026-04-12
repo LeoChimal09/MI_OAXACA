@@ -1,11 +1,11 @@
 "use client";
 
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
+import ButtonBase from "@mui/material/ButtonBase";
 import Typography from "@mui/material/Typography";
 import type { MenuCategory } from "@/features/menu/menu.data";
+import { useI18n } from "@/components/shared/I18nProvider";
 
 const categoryEmojis: Record<string, string> = {
   All: "🍽️",
@@ -32,49 +32,58 @@ export default function CategorySidebar({
   selectedCategory,
   onSelectCategory,
 }: CategorySidebarProps) {
+  const { categoryLabel } = useI18n();
+
   return (
     <Stack
       spacing={1.5}
       sx={{
         flexDirection: { xs: "row", md: "column" },
         overflowX: { xs: "auto", md: "visible" },
-        pb: { xs: 0.5, md: 0 },
+        pb: { xs: 0.75, md: 0 },
         pr: { xs: 0.5, md: 0 },
+        px: { xs: 0.25, md: 0 },
         /* hide scrollbar on mobile while keeping scroll functionality */
         "&::-webkit-scrollbar": { display: "none" },
         scrollbarWidth: "none",
       }}
     >
       {categories.map((category) => (
-        <Card
+        <ButtonBase
           key={category}
           onClick={() => onSelectCategory(category)}
           sx={{
-            minWidth: { xs: 150, sm: 170, md: "auto" },
+            minWidth: { xs: 132, sm: 152, md: "auto" },
             cursor: "pointer",
             transition: "all 0.2s ease",
             border: selectedCategory === category ? "2px solid" : "1px solid",
+            borderRadius: 3,
             borderColor:
               selectedCategory === category ? "primary.main" : "divider",
-            backgroundColor:
-              selectedCategory === category ? "rgba(232,25,125,0.1)" : "background.paper",
+            background:
+              selectedCategory === category
+                ? "linear-gradient(135deg, rgba(232,25,125,0.18), rgba(232,25,125,0.08))"
+                : "rgba(12,14,26,0.58)",
+            boxShadow: selectedCategory === category ? "var(--glow-pink)" : "var(--shadow-soft)",
+            justifyContent: "flex-start",
+            textAlign: "left",
             "&:hover": {
               transform: { xs: "none", md: "translateY(-2px)" },
-              boxShadow: (theme) => theme.shadows[4],
+              boxShadow: "var(--shadow-deep)",
               borderColor: "primary.light",
             },
           }}
         >
-          <CardContent
+          <Box
             sx={{
               display: "flex",
               gap: 1.5,
               alignItems: "center",
-              p: { xs: 1.25, md: 2 },
-              "&:last-child": { pb: { xs: 1.25, md: 2 } },
+              p: { xs: 1, md: 1.35 },
+              width: "100%",
             }}
           >
-            <Box sx={{ fontSize: { xs: "1.4rem", md: "1.75rem" } }}>
+            <Box sx={{ fontSize: { xs: "1.2rem", md: "1.45rem" } }}>
               {categoryEmojis[category as keyof typeof categoryEmojis] ?? "📌"}
             </Box>
             <Typography
@@ -83,12 +92,13 @@ export default function CategorySidebar({
                 fontWeight: selectedCategory === category ? 700 : 500,
                 color: selectedCategory === category ? "primary.main" : "text.primary",
                 whiteSpace: "nowrap",
+                fontSize: { xs: "0.92rem", md: "0.98rem" },
               }}
             >
-              {category}
+              {categoryLabel(String(category))}
             </Typography>
-          </CardContent>
-        </Card>
+          </Box>
+        </ButtonBase>
       ))}
     </Stack>
   );

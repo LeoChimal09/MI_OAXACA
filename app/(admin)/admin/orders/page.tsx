@@ -32,39 +32,32 @@ import {
   ORDER_ETA_OPTIONS,
 } from "@/features/checkout/order-status";
 import { useOrdersApi } from "@/hooks/useOrdersApi";
+import { useI18n } from "@/components/shared/I18nProvider";
 
 const HIDDEN_ADMIN_ORDER_HISTORY_KEY = "mi_oaxaca_hidden_admin_order_history";
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; color: "default" | "warning" | "info" | "success" | "error" }> = {
-  pending: { label: "Pending", color: "default" },
-  in_progress: { label: "In Progress", color: "warning" },
-  ready: { label: "Ready", color: "info" },
-  completed: { label: "Completed", color: "success" },
-  cancelled: { label: "Cancelled", color: "error" },
-};
-
 const WORKFLOW: OrderStatus[] = ["pending", "in_progress", "ready", "completed", "cancelled"];
 
-function getKitchenItemTypeLabel(category: string): "Appetizer" | "Meal" | "Drink" | "Dessert" | "Extra" {
+function getKitchenItemTypeKey(category: string): "appetizer" | "meal" | "drink" | "dessert" | "extra" {
   const normalized = category.trim().toLowerCase();
 
   if (normalized === "appetizers") {
-    return "Appetizer";
+    return "appetizer";
   }
 
   if (normalized === "drinks") {
-    return "Drink";
+    return "drink";
   }
 
   if (normalized === "desserts") {
-    return "Dessert";
+    return "dessert";
   }
 
   if (normalized === "extras" || normalized === "à la carte") {
-    return "Extra";
+    return "extra";
   }
 
-  return "Meal";
+  return "meal";
 }
 
 function loadHiddenAdminOrderRefs() {
@@ -91,10 +84,18 @@ function loadHiddenAdminOrderRefs() {
 }
 
 export default function AdminOrdersPage() {
+  const { t } = useI18n();
   const { orders, loading, error, updateOrderStatus } = useOrdersApi({
     mode: "admin",
-    pollIntervalMs: 2000,
+    pollIntervalMs: 5000,
   });
+  const STATUS_CONFIG: Record<OrderStatus, { label: string; color: "default" | "warning" | "info" | "success" | "error" }> = {
+    pending: { label: t("status.pending"), color: "default" },
+    in_progress: { label: t("status.in_progress"), color: "warning" },
+    ready: { label: t("status.ready"), color: "info" },
+    completed: { label: t("status.completed"), color: "success" },
+    cancelled: { label: t("status.cancelled"), color: "error" },
+  };
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [showBottomFade, setShowBottomFade] = useState(false);
   const [hiddenOrderRefs, setHiddenOrderRefs] = useState<string[]>(loadHiddenAdminOrderRefs);
@@ -170,7 +171,7 @@ export default function AdminOrdersPage() {
   if (loading) {
     return (
       <Container maxWidth="md" sx={{ py: { xs: 4, md: 8 }, textAlign: "center" }}>
-        <Typography color="text.secondary">Loading admin orders...</Typography>
+        <Typography color="text.secondary">{t("admin.orders_loading")}</Typography>
       </Container>
     );
   }
@@ -179,10 +180,10 @@ export default function AdminOrdersPage() {
     return (
       <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 }, textAlign: "center" }}>
         <Stack spacing={3}>
-          <Typography variant="h4">Unable to load admin orders</Typography>
+          <Typography variant="h4">{t("admin.orders_unable")}</Typography>
           <Typography color="text.secondary">{error}</Typography>
           <Button variant="contained" LinkComponent={Link} href="/admin">
-            Back to Dashboard
+            {t("admin.back_dashboard")}
           </Button>
         </Stack>
       </Container>
@@ -193,11 +194,11 @@ export default function AdminOrdersPage() {
     <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
       <Stack spacing={1} sx={{ mb: 4 }}>
         <Typography variant="overline" color="secondary.main">
-          Admin Area
+          {t("admin.area")}
         </Typography>
         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={2} sx={{ mb: 1 }}>
           <Typography variant="h3" sx={{ fontSize: { xs: "2rem", sm: "2.5rem" } }}>
-            Orders
+            {t("admin.orders_title")}
           </Typography>
           {visibleOrders.length > 0 && visibleOrders.some((order) => canRemoveOrderFromHistory(order.status)) && (
             <Button
@@ -208,9 +209,12 @@ export default function AdminOrdersPage() {
                 const removableOrders = visibleOrders.filter((order) => canRemoveOrderFromHistory(order.status));
                 setConfirmState({
                   open: true,
-                  title: "Clear order history?",
-                  description: `This will remove ${removableOrders.length} completed or cancelled order${removableOrders.length !== 1 ? "s" : ""} from your admin browser history.`,
-                  confirmLabel: "Clear History",
+                  title: t("admin.clear_history_title"),
+                  description: t("admin.clear_history_desc", {
+                    count: removableOrders.length,
+                    suffix: removableOrders.length !== 1 ? "s" : "",
+                  }),
+                  confirmLabel: t("admin.clear_history"),
                   confirmColor: "error",
                   onConfirm: () => {
                     const removable = visibleOrders.filter((order) => canRemoveOrderFromHistory(order.status));
@@ -224,12 +228,12 @@ export default function AdminOrdersPage() {
                 });
               }}
             >
-              Clear History
+              {t("admin.clear_history")}
             </Button>
           )}
         </Stack>
         <Typography color="text.secondary">
-          Admin view for managing order workflow. Status updates are persisted in the configured database.
+          {t("admin.orders_subtitle")}
         </Typography>
       </Stack>
 
@@ -238,15 +242,15 @@ export default function AdminOrdersPage() {
           <CardContent>
             <Stack spacing={2} alignItems="flex-start">
               <Typography variant="h6">
-                {orders.length === 0 ? "No orders yet" : "No orders are currently visible"}
+                {orders.length === 0 ? t("admin.no_orders") : t("admin.none_visible")}
               </Typography>
               <Typography color="text.secondary">
                 {orders.length === 0
-                  ? "Place a customer order first, then come back here to move it through the workflow."
-                  : "Hidden orders can be shown again by clearing this browser's local storage for admin history."}
+                  ? t("admin.no_orders_copy")
+                  : t("admin.none_visible_copy")}
               </Typography>
               <Button variant="contained" LinkComponent={Link} href="/menu">
-                Open Menu
+                {t("admin.open_menu")}
               </Button>
             </Stack>
           </CardContent>
@@ -272,13 +276,13 @@ export default function AdminOrdersPage() {
                 const kitchenLines = order.orders.flatMap((entry) => entry.lines);
                 const kitchenSummary = Object.entries(
                   kitchenLines.reduce<Record<string, number>>((acc, line) => {
-                    const typeLabel = getKitchenItemTypeLabel(line.category);
+                    const typeLabel = getKitchenItemTypeKey(line.category);
                     acc[typeLabel] = (acc[typeLabel] ?? 0) + line.cartQuantity;
                     return acc;
                   }, {}),
                 )
                   .sort(([a], [b]) => a.localeCompare(b))
-                  .map(([label, qty]) => `${qty} ${label}${qty !== 1 ? "s" : ""}`)
+                  .map(([label, qty]) => `${qty} ${t(`admin.type.${label}`)}`)
                   .join(" · ");
                 const status = STATUS_CONFIG[order.status];
                 const canRemove = canRemoveOrderFromHistory(order.status);
@@ -287,15 +291,15 @@ export default function AdminOrdersPage() {
                   <Card key={order.ref} variant="outlined" sx={{ position: "relative" }}>
                     {canRemove && (
                       <IconButton
-                        aria-label={`Remove ${order.ref} from admin history`}
+                        aria-label={t("admin.remove_history_aria", { ref: order.ref })}
                         size="small"
                         sx={{ position: "absolute", top: 10, right: 10, zIndex: 1 }}
                         onClick={() => {
                           setConfirmState({
                             open: true,
-                            title: "Remove order from admin history?",
-                            description: "This only hides the order in this admin browser. It does not delete the submitted order.",
-                            confirmLabel: "Remove",
+                            title: t("admin.remove_history_title"),
+                            description: t("admin.remove_history_desc"),
+                            confirmLabel: t("admin.remove"),
                             confirmColor: "error",
                             onConfirm: () => {
                               setHiddenOrderRefs((prev) => {
@@ -313,8 +317,8 @@ export default function AdminOrdersPage() {
                         <CloseIcon fontSize="small" />
                       </IconButton>
                     )}
-                    <CardContent sx={{ pr: canRemove ? 7 : 2 }}>
-                      <Stack spacing={2.5}>
+                    <CardContent sx={{ pr: canRemove ? 7 : 2, py: { xs: 1.75, sm: 2 } }}>
+                      <Stack spacing={{ xs: 2, sm: 2.5 }}>
                         <Stack
                           direction={{ xs: "column", md: "row" }}
                           justifyContent="space-between"
@@ -323,11 +327,11 @@ export default function AdminOrdersPage() {
                         >
                           <Stack spacing={0.75}>
                             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                              <Typography variant="h6">{order.ref}</Typography>
+                              <Typography variant="h6" sx={{ overflowWrap: "anywhere" }}>{order.ref}</Typography>
                               <Chip size="small" label={status.label} color={status.color} />
                             </Stack>
                             <Typography variant="body2" color="text.secondary">
-                              {formatOrderTimestamp(order.placedAt)} · {order.form.firstName} {order.form.lastName} · {order.form.fulfillment === "delivery" ? "Delivery" : "Pickup"}
+                              {formatOrderTimestamp(order.placedAt)} · {order.form.firstName} {order.form.lastName} · {order.form.fulfillment === "delivery" ? t("admin.delivery") : t("admin.pickup")}
                             </Typography>
                             {order.status === "in_progress" && order.etaMinutes && (
                               <Typography variant="caption" color="warning.main" sx={{ fontWeight: 700 }}>
@@ -338,13 +342,13 @@ export default function AdminOrdersPage() {
 
                           <Stack alignItems={{ xs: "flex-start", md: "flex-end" }} spacing={0.25}>
                             <Typography variant="body1" sx={{ fontWeight: 700, color: "primary.main" }}>
-                              ${(order.totalPrice * 1.08).toFixed(2)} total
+                              {t("admin.total_with_tax", { total: (order.totalPrice * 1.08).toFixed(2) })}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              ${order.totalPrice.toFixed(2)} + tax
+                              {t("admin.subtotal_plus_tax", { subtotal: order.totalPrice.toFixed(2) })}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {itemCount} item{itemCount !== 1 ? "s" : ""}
+                              {t("admin.items_count", { count: itemCount, suffix: itemCount !== 1 ? "s" : "" })}
                             </Typography>
                           </Stack>
                         </Stack>
@@ -376,7 +380,7 @@ export default function AdminOrdersPage() {
                             }}
                           >
                             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                              Kitchen items
+                              {t("admin.kitchen_items")}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               {kitchenSummary}
@@ -396,14 +400,14 @@ export default function AdminOrdersPage() {
                                     <strong>{line.cartQuantity}×</strong> {line.name}
                                   </Typography>
                                   <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
-                                    {getKitchenItemTypeLabel(line.category)} · {line.category}
+                                    {t(`admin.type.${getKitchenItemTypeKey(line.category)}`)} · {line.category}
                                   </Typography>
                                 </Stack>
                               ))}
                             </Stack>
                             {order.form.comment?.trim() && (
                               <Typography variant="caption" color="warning.main" sx={{ display: "block", mt: 0.75 }}>
-                                Note: {order.form.comment.trim()}
+                                {t("admin.note", { note: order.form.comment.trim() })}
                               </Typography>
                             )}
                           </AccordionDetails>
@@ -423,7 +427,7 @@ export default function AdminOrdersPage() {
                         >
                           <Stack spacing={0.75}>
                             <Typography variant="subtitle2" color="text.secondary">
-                              Customer
+                              {t("admin.customer")}
                             </Typography>
                             <Typography variant="body2">{order.form.email}</Typography>
                             <Typography variant="body2">{order.form.telephone}</Typography>
@@ -436,9 +440,15 @@ export default function AdminOrdersPage() {
 
                           <Stack spacing={1}>
                             <Typography variant="subtitle2" color="text.secondary">
-                              Update Status
+                              {t("admin.update_status")}
                             </Typography>
-                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Box
+                              sx={{
+                                display: 'grid',
+                                gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(5, auto)' },
+                                gap: 1,
+                              }}
+                            >
                               {WORKFLOW.map((nextStatus) => {
                                 const canTransition = canTransitionOrderStatus(order.status, nextStatus);
 
@@ -448,7 +458,7 @@ export default function AdminOrdersPage() {
                                     size="small"
                                     variant={order.status === nextStatus ? "contained" : "outlined"}
                                     color={STATUS_CONFIG[nextStatus].color === "default" ? "inherit" : STATUS_CONFIG[nextStatus].color}
-                                    sx={{ width: { xs: "100%", sm: "auto" } }}
+                                    sx={{ width: '100%', minWidth: 0 }}
                                     disabled={!canTransition || order.status === nextStatus}
                                     onClick={() => {
                                       if (nextStatus === "in_progress" && order.status !== "in_progress") {
@@ -469,9 +479,9 @@ export default function AdminOrdersPage() {
                                   </Button>
                                 );
                               })}
-                            </Stack>
+                            </Box>
                             <Typography variant="caption" color="text.secondary">
-                              Orders can only move forward through workflow, and only pending orders can be cancelled.
+                              {t("admin.workflow_help")}
                             </Typography>
                           </Stack>
                         </Box>
@@ -493,7 +503,7 @@ export default function AdminOrdersPage() {
                 bottom: 0,
                 height: 72,
                 background:
-                  "linear-gradient(180deg, rgba(247,241,232,0) 0%, rgba(247,241,232,0.7) 52%, rgba(247,241,232,1) 100%)",
+                  "linear-gradient(180deg, rgba(12,14,26,0) 0%, rgba(12,14,26,0.76) 52%, rgba(12,14,26,0.98) 100%)",
               }}
             />
           )}
@@ -504,7 +514,7 @@ export default function AdminOrdersPage() {
               color="text.secondary"
               sx={{ display: "block", mt: 1, textAlign: "right" }}
             >
-              Scroll to view older orders
+              {t("admin.scroll_older")}
             </Typography>
           )}
         </Box>
@@ -526,11 +536,11 @@ export default function AdminOrdersPage() {
         fullWidth
         maxWidth="xs"
       >
-        <DialogTitle>Set Prep Time</DialogTitle>
+        <DialogTitle>{t("admin.set_prep_time")}</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5}>
             <Typography color="text.secondary" variant="body2">
-              Choose an estimated preparation time before marking order {etaDialogOrder?.ref ?? ""} as In Progress.
+              {t("admin.choose_eta", { ref: etaDialogOrder?.ref ?? "" })}
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               {ORDER_ETA_OPTIONS.map((minutes) => (
@@ -542,7 +552,7 @@ export default function AdminOrdersPage() {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setEtaDialogOrderRef(null)}>Cancel</Button>
+          <Button onClick={() => setEtaDialogOrderRef(null)}>{t("admin.cancel")}</Button>
         </DialogActions>
       </Dialog>
 
@@ -555,15 +565,15 @@ export default function AdminOrdersPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Cancel Order</DialogTitle>
+        <DialogTitle>{t("admin.cancel_order_title")}</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ pt: 0.5 }}>
             <Typography color="text.secondary" variant="body2">
-              You can add an optional note for customer explaining why order {cancelDialogOrderRef ?? ""} was cancelled.
+              {t("admin.cancel_order_desc", { ref: cancelDialogOrderRef ?? "" })}
             </Typography>
             <TextField
-              label="Cancellation note (optional)"
-              placeholder="Example: Item unavailable right now. Please place a new order in 20 minutes."
+              label={t("admin.cancel_note")}
+              placeholder={t("admin.cancel_note_placeholder")}
               value={cancelNoteInput}
               onChange={(event) => setCancelNoteInput(event.target.value)}
               multiline
@@ -580,10 +590,10 @@ export default function AdminOrdersPage() {
               setCancelNoteInput("");
             }}
           >
-            Back
+            {t("admin.back")}
           </Button>
           <Button color="error" variant="contained" onClick={handleConfirmCancel}>
-            Cancel Order
+            {t("admin.cancel_order")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -20,7 +20,7 @@ export function getOrderProgressMessage(
   cancellationNote?: string | null,
 ) {
   if (status === "pending") {
-    return "Order received. We are about to start preparing it.";
+    return "Order received. It is pending and waiting for the restaurant to begin preparation.";
   }
 
   if (status === "in_progress") {

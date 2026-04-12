@@ -23,11 +23,7 @@ import { useTheme } from "@mui/material/styles";
 import { useEffect, useRef, useSyncExternalStore, useState, type CSSProperties } from "react";
 import { signOut } from "next-auth/react";
 import { useCart } from "@/features/cart/CartContext";
-
-const navLinks = [
-  { href: "/menu", label: "Menu" },
-  { href: "/orders", label: "My Orders" },
-];
+import { useI18n } from "@/components/shared/I18nProvider";
 
 type NavUser = { name: string | null; image: string | null; href: string } | null;
 
@@ -39,6 +35,7 @@ type SiteNavbarProps = {
 export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavbarProps) {
   const pathname = usePathname();
   const { cart } = useCart();
+  const { locale, setLocale, t } = useI18n();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -129,8 +126,13 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
     setAccountAnchor(target);
   };
 
+  const navLinks = [
+    { href: "/menu", label: t("nav.menu") },
+    { href: "/orders", label: t("nav.orders") },
+  ];
+
   const navigationLinks = showAdmin
-    ? [...navLinks, { href: "/admin", label: "Admin" }]
+    ? [...navLinks, { href: "/admin", label: t("nav.admin") }]
     : navLinks;
 
   return (
@@ -148,8 +150,10 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
         className="sticky top-0 z-50 flex items-center justify-between px-4 py-2.5 sm:px-6 lg:px-8"
         style={{
           "--site-nav-height": isDesktop ? "64px" : "60px",
-          background: "var(--surface)",
+          background: "var(--surface-glass)",
+          backdropFilter: "blur(10px)",
           borderBottom: "1px solid var(--border)",
+          boxShadow: "var(--shadow-soft)",
         } as CSSProperties}
       >
         {/* Logo */}
@@ -164,7 +168,7 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
             className="hidden sm:inline text-xs tracking-widest"
             style={{ color: "var(--foreground-muted)" }}
           >
-            Tacos y Más…
+            {t("nav.tacos_y_mas")}
           </span>
         </Link>
 
@@ -191,6 +195,35 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
 
         {/* Right side - Cart and Account */}
         <div className="flex items-center gap-2.5">
+          <Box
+            sx={{
+              display: { xs: "none", sm: "inline-flex" },
+              alignItems: "center",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 999,
+              overflow: "hidden",
+              background: "rgba(255,255,255,0.04)",
+            }}
+          >
+            {(["en", "es"] as const).map((nextLocale) => (
+              <Button
+                key={nextLocale}
+                size="small"
+                variant="text"
+                onClick={() => setLocale(nextLocale)}
+                sx={{
+                  minWidth: 40,
+                  px: 1,
+                  py: 0.35,
+                  borderRadius: 0,
+                  color: locale === nextLocale ? "var(--foreground)" : "var(--foreground-muted)",
+                  background: locale === nextLocale ? "rgba(232,25,125,0.18)" : "transparent",
+                }}
+              >
+                {t(nextLocale === "en" ? "language.english" : "language.spanish")}
+              </Button>
+            ))}
+          </Box>
           <Link
             href="/cart"
             className="inline-flex items-center justify-center rounded-full p-2 transition-all hover:opacity-95"
@@ -198,8 +231,9 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
               color: pathname === "/cart" ? "var(--foreground)" : "var(--foreground-muted)",
               background: "rgba(232, 25, 125, 0.14)",
               border: "1px solid rgba(232, 25, 125, 0.25)",
+              boxShadow: pathname === "/cart" ? "var(--glow-pink)" : "none",
             }}
-            aria-label="View cart"
+            aria-label={t("cart.view")}
           >
             <Badge
               badgeContent={cartCount}
@@ -245,7 +279,7 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
                   {user.name?.charAt(0)?.toUpperCase() ?? "U"}
                 </Avatar>
                 <Typography variant="body2" sx={{ fontWeight: 500, display: { xs: "none", sm: "block" } }}>
-                  {user.name ?? "Account"}
+                  {user.name ?? t("nav.account")}
                 </Typography>
               </Box>
               <Popper
@@ -271,7 +305,7 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
                         void signOut({ callbackUrl: "/" });
                       }}
                     >
-                      Sign out
+                      {t("nav.sign_out")}
                     </Button>
                   </Paper>
                 </ClickAwayListener>
@@ -282,10 +316,10 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
               variant="text"
               size="small"
               startIcon={<PersonOutlineIcon />}
-              sx={{ ml: 1, textTransform: "none" }}
+              sx={{ ml: 1, textTransform: "none", color: "var(--foreground)" }}
               onClick={() => window.dispatchEvent(new CustomEvent("open-welcome-modal"))}
             >
-              Sign in
+              {t("nav.sign_in")}
             </Button>
           )}
 
@@ -295,7 +329,7 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
               size="small"
               sx={{ minWidth: 0, px: 1, color: "var(--foreground-muted)" }}
               onClick={() => setMobileMenuOpen(true)}
-              aria-label="Open navigation menu"
+              aria-label={t("nav.open_menu")}
             >
               <MenuIcon fontSize="small" />
             </Button>
@@ -310,8 +344,21 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
               Mi Oaxaca
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Quick navigation
+              {t("nav.quick_navigation")}
             </Typography>
+          </Box>
+          <Box sx={{ px: 2, pb: 1.25, display: "flex", gap: 1 }}>
+            {(["en", "es"] as const).map((nextLocale) => (
+              <Button
+                key={nextLocale}
+                size="small"
+                variant={locale === nextLocale ? "contained" : "outlined"}
+                onClick={() => setLocale(nextLocale)}
+                sx={{ minWidth: 52 }}
+              >
+                {t(nextLocale === "en" ? "language.english" : "language.spanish")}
+              </Button>
+            ))}
           </Box>
           <Divider />
           <List>
@@ -322,12 +369,26 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
                 href={href}
                 selected={pathname === href}
                 onClick={() => setMobileMenuOpen(false)}
+                sx={{
+                  borderRadius: 1.5,
+                  mx: 1,
+                  my: 0.25,
+                  "&.Mui-selected": {
+                    background: "rgba(232,25,125,0.16)",
+                    border: "1px solid rgba(232,25,125,0.35)",
+                  },
+                }}
               >
                 <ListItemText primary={label} />
               </ListItemButton>
             ))}
-            <ListItemButton component={Link} href="/cart" onClick={() => setMobileMenuOpen(false)}>
-              <ListItemText primary={`Cart (${cartCount})`} />
+            <ListItemButton
+              component={Link}
+              href="/cart"
+              onClick={() => setMobileMenuOpen(false)}
+              sx={{ borderRadius: 1.5, mx: 1, my: 0.25 }}
+            >
+              <ListItemText primary={`${t("nav.cart")} (${cartCount})`} />
             </ListItemButton>
           </List>
           <Divider />
@@ -342,7 +403,7 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
                   void signOut({ callbackUrl: "/" });
                 }}
               >
-                Sign out
+                {t("nav.sign_out")}
               </Button>
             ) : (
               <Button
@@ -353,7 +414,7 @@ export default function SiteNavbar({ showAdmin = false, user = null }: SiteNavba
                   window.dispatchEvent(new CustomEvent("open-welcome-modal"));
                 }}
               >
-                Sign in
+                {t("nav.sign_in")}
               </Button>
             )}
           </Box>

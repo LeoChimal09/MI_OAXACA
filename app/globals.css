@@ -6,6 +6,11 @@
 ──────────────────────────────────────────────────────────────────────────── */
 
 :root {
+  --font-display: "Playfair Display", "Times New Roman", Times, serif;
+  --font-body: "Lato", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+
   /* Base */
   --background:        #0c0e1a;   /* deep dark navy — truck body */
   --surface:           #131629;   /* slightly lighter layer */
@@ -29,6 +34,16 @@
   --accent-red:        #ef4444;   /* coral-red (sugar skull hearts) */
   --accent-purple:     #a855f7;   /* flower purple */
   --accent-sky:        #38bdf8;   /* light sky blue (birds) */
+
+  /* Atmosphere */
+  --card-background:   rgba(19, 22, 41, 0.88);
+  --card-background-raised: rgba(26, 31, 56, 0.92);
+  --surface-glass:     rgba(12, 14, 26, 0.74);
+  --glow-pink:         0 0 0 1px rgba(232, 25, 125, 0.25), 0 12px 30px rgba(181, 16, 94, 0.25);
+  --shadow-soft:       0 8px 24px rgba(5, 8, 20, 0.4);
+  --shadow-deep:       0 16px 40px rgba(2, 5, 16, 0.55);
+  --hero-gradient:     linear-gradient(180deg, #0c0e1a 0%, #0b1022 55%, #0a0f20 100%);
+  --festive-border:    linear-gradient(90deg, var(--brand-pink), var(--accent-orange), var(--accent-gold), var(--accent-teal), var(--accent-purple));
 }
 
 @theme inline {
@@ -58,9 +73,22 @@
 }
 
 body {
-  background-color: var(--background);
+  position: relative;
+  background: var(--hero-gradient);
   color: var(--foreground);
   font-family: var(--font-body, 'Georgia', serif);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image: radial-gradient(circle at 18% 14%, rgba(245, 197, 24, 0.18) 0, transparent 22%), radial-gradient(circle at 82% 12%, rgba(6, 182, 212, 0.16) 0, transparent 20%), radial-gradient(circle at 50% 82%, rgba(232, 25, 125, 0.14) 0, transparent 20%);
+  z-index: -1;
 }
 
 html {
@@ -70,7 +98,18 @@ html {
 @media (max-width: 900px) {
   :root {
     --site-nav-height: 60px;
+    --shadow-soft: 0 6px 16px rgba(5, 8, 20, 0.35);
+    --shadow-deep: 0 12px 28px rgba(2, 5, 16, 0.45);
   }
+}
+
+a {
+  transition: color 160ms ease, opacity 160ms ease, background-color 160ms ease;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
 }
 
 /* ─── Utility helpers ─────────────────────────────────────────────────────── */
@@ -97,4 +136,33 @@ html {
     var(--accent-teal),
     var(--accent-purple)
   ) 1;
+}
+
+.surface-card {
+  background: var(--card-background);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(6px);
+}
+
+.reveal-up {
+  animation: revealUp 480ms ease both;
+}
+
+@keyframes revealUp {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

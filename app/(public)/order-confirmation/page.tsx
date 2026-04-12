@@ -19,14 +19,21 @@ import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import Link from 'next/link';
 import { useEffect } from 'react';
+import { useI18n } from '@/components/shared/I18nProvider';
+import type { OrderStatus } from '@/features/checkout/checkout.types';
 
 export default function OrderConfirmationPage() {
+  const { t } = useI18n();
   const params = useSearchParams();
   const ref = params.get('ref');
   const payment = params.get('payment');
   const sessionId = params.get('session_id');
   const { clearCart } = useCart();
-  const { order, loading, error, refetch } = useOrdersApi({ ref, enabled: Boolean(ref) });
+  const { order, loading, error, refetch } = useOrdersApi({
+    ref,
+    enabled: Boolean(ref),
+    pollIntervalMs: 0,
+  });
 
   useEffect(() => {
     if (payment === 'success') {
@@ -65,7 +72,7 @@ export default function OrderConfirmationPage() {
   if (loading) {
     return (
       <Container maxWidth="sm" sx={{ py: 8, textAlign: 'center' }}>
-        <Typography color="text.secondary">Loading order...</Typography>
+        <Typography color="text.secondary">{t('order_confirmation.loading')}</Typography>
       </Container>
     );
   }
@@ -75,10 +82,10 @@ export default function OrderConfirmationPage() {
       <Container maxWidth="md" sx={{ py: 8 }}>
         <Stack spacing={3} alignItems="center" textAlign="center">
           <Typography variant="h4" sx={{ color: 'var(--foreground)' }}>
-            Order not found
+            {t('order_confirmation.not_found')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {error ?? 'This confirmation link may be invalid or has expired.'}
+            {error ?? t('order_confirmation.not_found_copy')}
           </Typography>
           <Button
             component={Link}
@@ -86,7 +93,7 @@ export default function OrderConfirmationPage() {
             variant="contained"
             sx={{ background: 'linear-gradient(135deg, var(--brand-pink), #f5316d)', color: '#fff' }}
           >
-            Back to Menu
+            {t('checkout.back_menu')}
           </Button>
         </Stack>
       </Container>
@@ -102,6 +109,13 @@ export default function OrderConfirmationPage() {
   const total = totalPrice + tax;
   const isDelivery = form.fulfillment === 'delivery';
   const paymentStatusLabel = order.paymentStatus ? order.paymentStatus.replaceAll('_', ' ') : 'paid';
+  const pickupMessageKey: Record<OrderStatus, string> = {
+    pending: 'order_detail.pickup_pending',
+    in_progress: 'order_detail.pickup_in_progress',
+    ready: 'order_detail.pickup_ready',
+    completed: 'order_detail.pickup_completed',
+    cancelled: 'order_detail.pickup_cancelled',
+  };
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -112,14 +126,14 @@ export default function OrderConfirmationPage() {
               <CheckCircleIcon color="success" sx={{ fontSize: 40 }} />
               <Box>
                 <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                  Order Placed!
+                  {t('order_confirmation.order_placed')}
                 </Typography>
                 <Typography color="text.secondary">
-                  Thank you, {form.firstName}. Your order reference is <strong>{order.ref}</strong>.
+                  {t('order_confirmation.thank_you', { name: form.firstName, ref: order.ref })}
                 </Typography>
                 {form.payment === 'card' && (
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Payment status: {paymentStatusLabel}
+                    {t('order_confirmation.payment_status', { status: paymentStatusLabel })}
                   </Typography>
                 )}
               </Box>
@@ -132,7 +146,7 @@ export default function OrderConfirmationPage() {
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2 }}>
-                  Your Order
+                  {t('order_confirmation.your_order')}
                 </Typography>
                 <Stack spacing={2}>
                   {orders.map((entry, i) => (
@@ -161,16 +175,16 @@ export default function OrderConfirmationPage() {
 
                   <Stack spacing={0.5}>
                     <Stack direction="row" justifyContent="space-between">
-                      <Typography variant="body2">Subtotal</Typography>
+                      <Typography variant="body2">{t('cart.subtotal')}</Typography>
                       <Typography variant="body2">${totalPrice.toFixed(2)}</Typography>
                     </Stack>
                     <Stack direction="row" justifyContent="space-between">
-                      <Typography variant="body2">Est. tax (8%)</Typography>
+                      <Typography variant="body2">{t('cart.tax')}</Typography>
                       <Typography variant="body2">${tax.toFixed(2)}</Typography>
                     </Stack>
                     <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
                       <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                        Total
+                        {t('cart.total')}
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 700, color: 'primary.main' }}>
                         ${total.toFixed(2)}
@@ -188,7 +202,7 @@ export default function OrderConfirmationPage() {
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                   {isDelivery ? <DeliveryDiningIcon color="primary" fontSize="small" /> : <StorefrontIcon color="primary" fontSize="small" />}
                   <Typography variant="subtitle2" color="text.secondary">
-                    {isDelivery ? 'Delivery Address' : 'Pickup'}
+                    {isDelivery ? t('order_confirmation.delivery_address') : t('order_confirmation.pickup')}
                   </Typography>
                 </Stack>
                 {isDelivery ? (
@@ -202,7 +216,7 @@ export default function OrderConfirmationPage() {
                   </Stack>
                 ) : (
                   <Typography variant="body2" color="text.secondary">
-                    Ready for in-store pickup
+                    {t(pickupMessageKey[order.status])}
                   </Typography>
                 )}
               </CardContent>
@@ -211,10 +225,10 @@ export default function OrderConfirmationPage() {
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Payment
+                  {t('order_detail.payment')}
                 </Typography>
                 <Typography variant="body2">
-                  {form.payment === 'cash' ? 'Cash on Pickup / Delivery' : 'Pay by Card'}
+                  {form.payment === 'cash' ? t('order_confirmation.cash_pickup') : t('order_confirmation.pay_card')}
                 </Typography>
               </CardContent>
             </Card>
@@ -223,10 +237,10 @@ export default function OrderConfirmationPage() {
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <Button component={Link} href="/orders" variant="outlined" sx={{ flex: 1 }}>
-            View My Orders
+            {t('order_confirmation.view_orders')}
           </Button>
           <Button component={Link} href="/menu" variant="contained" sx={{ flex: 1 }}>
-            Continue Shopping
+            {t('cart.continue_shopping')}
           </Button>
         </Stack>
       </Stack>
