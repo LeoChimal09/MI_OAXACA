@@ -1,0 +1,23 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: mioaxaca_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-mioaxaca}
+      MYSQL_USER: ${MYSQL_USER:-mioaxaca}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mioaxaca}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root-dev}
+    ports:
+      - "${MYSQL_PORT:-3309}:3306"
+    volumes:
+      - mioaxaca_mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mioaxaca_mysql_data:
